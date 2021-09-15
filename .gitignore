@@ -9,3 +9,4 @@ utils/__pycache__/
 # ignore folder 
 data/ 
 results/
+tables/

@@ -46,14 +46,16 @@ class subj:
             mag0  = data.mag0[t]
             mag1  = data.mag1[t]
             obs   = [ mag0, mag1]
+            # planning the action 
+            brain.plan_act( obs)
             state = int( data.state[t])
             act   = int( data.action[t])
             rew   = obs[ act]
             # store 
             brain.memory.push( obs, state, act, rew, t)
             # evaluate: log π(a|xt)
-            NLL += - np.log( brain.eval_act( obs, act) + eps_)
-            # model update 
+            NLL += - np.log( brain.eval_act( act) + eps_)
+            # leanring stage 
             brain.update()
         
         return NLL
@@ -154,12 +156,15 @@ class subj:
             state       = int( data.state[t])
             human_act   = int( data.action[t])
             correct_act = int( data.mag0[t] <= data.mag1[t])
-            act         = brain.get_action( obs)
+
+            # plan act
+            brain.plan_act( obs)
+            act         = brain.get_act()
             rew         = obs[ act]
             
             # evaluate action: get p(a|xt)
             pi_a1x = brain.eval_act( state, act)
-            #ll     = brain.eval_act( state, human_act)
+            ll     = brain.eval_act( state, human_act)
 
             # record some vals
             # general output 
@@ -167,7 +172,7 @@ class subj:
             data['rew'][t]            = rew
             data['act_acc'][t]        = pi_a1x
             data['p_s'][t]            = self.p_s
-            #data['nll'][t]            = - np.log( ll + eps_)
+            data['nll'][t]            = - np.log( ll + eps_)
             
             # add some model specific output
             try: 
