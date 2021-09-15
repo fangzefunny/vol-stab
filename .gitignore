@@ -4,6 +4,7 @@
 *.ipynb_checkpoints
 *.DS_Store 
 
+
 # ignore folder 
 data/ 
 results/
