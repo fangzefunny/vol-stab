@@ -43,6 +43,10 @@ class Basebrain:
         self.p_a = np.ones( [self.act_dim, 1]
                           ) * 1 / self.act_dim
 
+    def _init_choice_prob( self):
+        self.p_a1x = np.ones( [self.act_dim,]
+                          ) * 1 / self.act_dim
+
     def _init_memory( self):
         self.memory = simpleBuffer()
         
@@ -54,18 +58,14 @@ class Basebrain:
         self.pi = np.ones( [ self.state_dim, self.act_dim]
                           ) * 1 / self.act_dim
     
-    def plan_act( self):
+    def plan_act( self, obs):
         return NotImplementedError
         
-    def get_act( self, obs):
-        # get p(a|x)
-        p_a1x = self.plan_act( obs)
-        return np.random.choice( self.act_space, p=p_a1x)
+    def get_act( self):
+        return np.random.choice( self.act_space, p=self.p_a1x)
         
-    def eval_act(self, obs, act):
-        # get p(a|x)
-        p_a1x = self.plan_act( obs)
-        return p_a1x[ act]
+    def eval_act(self, act):
+        return self.p_a1x[ act]
         
     def update(self):
         return NotImplementedError
@@ -119,9 +119,7 @@ class model1( Basebrain):
         # softmax action selection
         pit = 1 / ( 1 + np.exp( -self.beta * vt))
         # choice probability
-        pi_a1x = np.array( [ pit, 1 - pit])
-
-        return pi_a1x
+        self.p_a1x = np.array( [ pit, 1 - pit])
 
 class model2( model1):
 
@@ -146,9 +144,8 @@ class model2( model1):
         # softmax action selection
         pit = 1 / ( 1 + np.exp( -self.beta * vt))
         # choice probability
-        pi_a1x = np.array( [ pit, 1 - pit])
+        self.p_a1x = np.array( [ pit, 1 - pit])
 
-        return pi_a1x
 
 class model7( model2):
 
@@ -174,8 +171,7 @@ class model7( model2):
         # softmax action selection
         pit = 1 / ( 1 + np.exp( -self.beta * vt))
         # choice probability
-        pi_a1x = np.array( [ pit, 1 - pit])
-        return pi_a1x
+        self.p_a1x = np.array( [ pit, 1 - pit])
 
 class model8( model7):
 
@@ -202,8 +198,7 @@ class model8( model7):
         # softmax action selection + lapse
         pit = ( 1 - self.eps) / ( 1 + np.exp( -self.beta * vt)) + self.eps / 2 
         # choice probability
-        pi_a1x = np.array( [ pit, 1 - pit])
-        return pi_a1x    
+        self.p_a1x = np.array( [ pit, 1 - pit]) 
 
 class model11( model7):
 
@@ -253,8 +248,7 @@ class model11( model7):
         pit = 1 / ( 1 + np.exp( - ( self.beta * vt + 
                   self.beta_a * ( self.p_a[ 0, 0] - self.p_a[ 1, 0])))) 
         # choice probability
-        pi_a1x = np.array( [ pit, 1 - pit])
-        return pi_a1x    
+        self.p_a1x = np.array( [ pit, 1 - pit])     
         
 '''
 %%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -282,11 +276,11 @@ class RRmodel( model11):
                       [    0, mag1]])
         # get π ∝ exp[ βQ(s,a) + log p_a(a)]
         beta  = np.clip( 1 / self.tau, eps_, max_)
-        log_pi = beta * Q - np.log( self.p_a.T + eps_) #sa
+        log_pi = beta * Q + np.log( self.p_a.T + eps_) #sa
         self.pi = np.exp( log_pi - logsumexp( 
                           log_pi, keepdims=True, axis=1)) #sa
 
-        return (self.p_s.T @ self.pi).reshape([-1]) 
+        self.p_a1x = (self.p_s.T @ self.pi).reshape([-1]) 
 
     
 
