@@ -7,9 +7,8 @@ import pandas as pd
 '''
 What we need to do
 
-1. Understand what is "run"
-2. Add exp2
-3. Add bifactor
+1. Add exp2
+2. Add bifactor
 '''
 
 # path to the current file 
@@ -50,7 +49,8 @@ def remake_cols_idx( data, sub_id):
 def preprocess( exp_folder, exp_id):
 
     ## Create the processed data storage
-    processed_data = dict()
+    rew_data = dict()
+    pain_data = dict()
 
     ## Loop to preprocess each file
     # obtain all files under the exp1 list
@@ -59,15 +59,17 @@ def preprocess( exp_folder, exp_id):
         # skip the folder 
         if not os.path.isdir( file): 
             # get the subid 
-            sub_id = file.split('_')[3]  
+            sub_id, rew_pain = file.split('_')[3], file.split('_')[4]  
             # get data for each subject
-            processed_data[ sub_id] = remake_cols_idx(
+            eval(f'{rew_pain}_data')[ sub_id] = remake_cols_idx(
                 pd.read_csv(f'{path}/data/{exp_folder}/{file}'), sub_id
             )  
-
+            
     ## Save the preprocessed 
-    with open( f'{path}/data/processed_{exp_id}.pkl', 'wb')as handle:
-        pickle.dump( processed_data, handle)
+    with open( f'{path}/data/rew_data_{exp_id}.pkl', 'wb')as handle:
+        pickle.dump( rew_data, handle)
+    with open( f'{path}/data/pain_data_{exp_id}.pkl', 'wb')as handle:
+        pickle.dump( pain_data, handle)
 
 if __name__ == '__main__':
 

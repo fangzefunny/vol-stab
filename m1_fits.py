@@ -16,6 +16,7 @@ path = os.path.dirname(os.path.abspath(__file__))
 ## pass the hyperparams
 parser = argparse.ArgumentParser(description='Test for argparse')
 parser.add_argument('--fit_num', '-f', help='fit times', type = int, default=1)
+parser.add_argument('--data_set', '-d', help='which_data', type = str, default='pain_data_exp1')
 parser.add_argument('--brain_name', '-n', help='choose agent', default='RRmodel')
 parser.add_argument('--n_cores', '-c', help='number of CPU cores used for parallel computing', 
                                             type=int, default=0)
@@ -65,7 +66,7 @@ def fit( train_data, args):
         fit_results = pd.DataFrame( fit_mat, columns=col)
 
         # save fit results
-        fname = f'{path}/results/fit_results-{args.brain_name}-{sub_idx}.csv'
+        fname = f'{path}/results/fit_results-{args.data_set}-{args.brain_name}-{sub_idx}.csv'
         
         # save fitted parameter 
         try:
@@ -82,15 +83,15 @@ def fit( train_data, args):
         params = pd.DataFrame( params_mat, columns=col)
         
         # create filename 
-        fname = f'{path}/results/params-{args.brain_name}-{sub_idx}.csv'
-        params.to_csv( fname)
+        fname = f'{path}/results/params-{args.data_set}-{args.brain_name}-{sub_idx}.csv'
+        params.to_csv( fname)  
 
     print( f'\nparallel computing spend {(end_time - start_time).total_seconds():.2f} seconds')
 
 if __name__ == '__main__':
 
     ## STEP 0: LOAD DATA
-    with open(f'{path}/data/processed_exp1.pkl', 'rb') as handle:
+    with open(f'{path}/data/{args.data_set}.pkl', 'rb') as handle:
         train_data = pickle.load( handle)
 
     ## STEP 1: HYPERPARAMETER TUNING

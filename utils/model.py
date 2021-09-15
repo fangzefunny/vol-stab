@@ -159,7 +159,7 @@ class subj:
             
             # evaluate action: get p(a|xt)
             pi_a1x = brain.eval_act( state, act)
-            ll     = brain.eval_act( state, human_act)
+            #ll     = brain.eval_act( state, human_act)
 
             # record some vals
             # general output 
@@ -167,7 +167,7 @@ class subj:
             data['rew'][t]            = rew
             data['act_acc'][t]        = pi_a1x
             data['p_s'][t]            = self.p_s
-            data['nll'][t]            = - np.log( ll + eps_)
+            #data['nll'][t]            = - np.log( ll + eps_)
             
             # add some model specific output
             try: 
