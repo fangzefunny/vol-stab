@@ -36,13 +36,13 @@ def fit( train_data, args):
         n_cores = int( mp.cpu_count())
     n_cores = np.min( [ n_cores, args.fit_num])
     pool = mp.Pool( n_cores)
+    print( f'Using {n_cores} parallel CPU cores')
     
     for sub_idx in train_data.keys():
 
         # get subject data
         sub_data = [train_data[ sub_idx]]
         ## Start fitting 
-        print( f'Using {n_cores} parallel CPU cores')
         # parameter matrix and loss matrix 
         fit_mat = np.zeros( [args.fit_num, len(args.bnds) + 1])
         # param
