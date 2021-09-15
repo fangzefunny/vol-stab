@@ -10,5 +10,5 @@ declare models=("model1" "model2" "model7"
 ## step 1: fit the model
 for model in "${models[@]}"; do 
     echo Model=$model
-        python m1_fits.py -n=$model -s=215 -f=10 
+        python m1_fits.py -n=$model -s=215 -f=100
 done 
