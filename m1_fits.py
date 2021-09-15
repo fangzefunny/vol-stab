@@ -54,7 +54,7 @@ def fit( train_data, args):
             fit_mat[ i, :-1] = param
             fit_mat[ i,  -1]  = loss
         end_time = datetime.datetime.now()
-        print( f'\nparallel computing spend {(end_time - start_time).total_seconds():.2f} seconds')
+        
         # choose the best params and loss 
         loss_vec = fit_mat[ :, -1]
         opt_idx, loss_opt = np.argmin( loss_vec), np.min( loss_vec)
@@ -84,6 +84,8 @@ def fit( train_data, args):
         # create filename 
         fname = f'{path}/results/params-{args.brain_name}-{sub_idx}.csv'
         params.to_csv( fname)
+
+    print( f'\nparallel computing spend {(end_time - start_time).total_seconds():.2f} seconds')
 
 if __name__ == '__main__':
 
