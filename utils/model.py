@@ -58,7 +58,7 @@ class subj:
         
         return NLL
 
-    def fit( self, data, bnds, seed, init=[]):
+    def fit( self, data, bnds, seed, init=[],verbose=False):
         '''Core fn used to do one fit
         '''
 
@@ -81,21 +81,23 @@ class subj:
         else: 
             param0 = init 
     
-        ## start fit 
-        print( f'''
-                Init with params:
-                    {param0} 
-                ''')
+        ## start fit
+        if verbose:
+            print( f'''
+                    Init with params:
+                        {param0} 
+                    ''')
         res = minimize( self.mle_loss,          # optimize object    
                         param0,                 # initialization
                         bounds= bnds,           # param bound 
-                        options={'disp': False} # verbose loss
+                        options={'disp': verbose} # verbose loss
                         )
-        print( f'''
-                Fitted params: {res.x}
-                MLE loss: {res.fun}
-                ''')
-        
+        if verbose:
+            print( f'''
+                    Fitted params: {res.x}
+                    MLE loss: {res.fun}
+                    ''')
+            
         # select the optimal param set 
         param_opt = res.x
         loss_opt  = res.fun

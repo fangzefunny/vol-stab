@@ -29,9 +29,14 @@ def remake_cols_idx( data, sub_id):
 
     ## Change the action index
     # the raw data: left stim--1, right stim--0
-    # I prefer: left stim--0, right stim--1
+    # I prefer:     left stim--0, right stim--1
     data['action'] = 1 - data['action']
     data[data['action'].isna()] = int(np.random.choice([0,1]))
+
+    ## Change the state index
+    # the raw data: left stim--1, right stim--0
+    # I prefer:     left stim--0, right stim--1
+    data['state'] = 1 - data['state']
 
     ## Numeric the stab-vol index 
     # stable--1, volatile--0
