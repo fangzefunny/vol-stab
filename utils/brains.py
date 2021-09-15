@@ -252,9 +252,65 @@ class model11( model7):
         
 '''
 %%%%%%%%%%%%%%%%%%%%%%%%%%%
-%     Proposed models     %
+%     Model Extension     %
 %%%%%%%%%%%%%%%%%%%%%%%%%%% 
 '''
+class modelE1( model7):
+    '''model extension 1 
+    Release the parameter bounds, see 
+    utils.hyperparams.py
+    '''
+    def __init__( self, state_dim, act_dim, params=[]):
+        super().__init__( state_dim, act_dim)
+        if len( params):
+            self._load_free_params( params)
+
+class modelE1( model11):
+    '''model extension 1 
+    Release the parameter bounds, see 
+    utils.hyperparams.py
+    '''
+    def __init__( self, state_dim, act_dim, params=[]):
+        super().__init__( state_dim, act_dim)
+        if len( params):
+            self._load_free_params( params)
+
+class modelE2( model11):
+
+    def __init__( self, state_dim, act_dim, params=[]):
+        super().__init__( state_dim, act_dim)
+        if len( params):
+            self._load_free_params( params)
+
+    def _load_free_params(self, params):
+        self.alpha_s = params[0] # learning rate 
+        self.lam     = params[1] # mixture of prob and mag
+        self.r       = params[2] # nonlinearity 
+        self.alpha_a = params[3] # learning rate of choice kernel
+        self.beta    = params[4] # inverse temperature
+        self.beta_a  = params[5] # inverse temperature for choice kernel
+        self.beta_c  = params[6] # inverse temperature for choice
+
+    def update( self):
+
+        ## Retrieve memory
+        _, action, state, _, _ = self.memory.sample()
+
+        ## Update p_s
+        # calculate δs = It(s) - p_s
+        I_st = np.zeros( [ self.state_dim, 1])
+        I_st[ state, 0] = 1.
+        rpe_s = I_st - self.p_s 
+        # p_s = p_s + α_s * δs
+        self.p_s += self.alpha_s * rpe_s 
+
+        ## Update p_a
+        # calculate δa = β_c * It(a) - p_a
+        I_at = np.zeros( [ self.act_dim, 1])
+        I_at[ action, 0] = 1.
+        rpe_a = self.beta_c * I_at - self.p_a 
+         # p_a = p_a + α_a * δa
+        self.p_a += self.alpha_a * rpe_a 
 
 class RRmodel( model11):
 

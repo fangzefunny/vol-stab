@@ -33,7 +33,15 @@ def set_hyperparams(args):
                       ( .000, 1.), ( .000, 20.), ( .000, 20.))
         args.params_name = [ 'α_q', 'λ', 'r', 'α_a', 'β', 'β_a']
     
-    ## proposed model
+    ## model extensions
+    elif args.brain_name == 'modelE1':
+        args.bnds = ( ( .000, 1.), ( .000,  1.), ( .1,  10.), 
+                      (  -1., 1.), ( .000, 20.), ( .000, 20.))
+        args.params_name = [ 'α_q', 'λ', 'r', 'α_a', 'β', 'β_a']
+    elif args.brain_name == 'modelE2':
+        args.bnds = ( ( .000, 1.), ( .000,  1.), ( .1,  10.), 
+                      ( .000, 1.), ( .000, 20.), ( .000, 20.), ( .000, 20.))
+        args.params_name = [ 'α_q', 'λ', 'r', 'α_a', 'β', 'β_a', 'β_c']
     elif args.brain_name == 'RRmodel':
         args.bnds = ( ( .000, 1.), ( .000,  1.), ( 1e-4, 1.))
         args.params_name = [ 'α_q', 'α_a', 'τ']
