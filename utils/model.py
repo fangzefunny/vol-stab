@@ -58,7 +58,7 @@ class subj:
         
         return NLL
 
-    def fit( self, data, bnds, seed, init=[],verbose=False):
+    def fit( self, data, bnds, seed, verbose=False, init=[]):
         '''Core fn used to do one fit
         '''
 
