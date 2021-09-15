@@ -9,7 +9,7 @@ python m0_preprocess.py
 #                 "model8" "model11" "RRmodel")
 
 declare data_sets=("rew_data_exp1")
-declare models=("RRmodel")
+declare models=("modelE1" "modelE2")
 
 ## step 1: fit the model
 for data_set in "${data_sets[@]}"; do 

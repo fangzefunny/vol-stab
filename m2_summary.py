@@ -1,6 +1,5 @@
 import os 
 import pickle
-from utils.model import subj 
 import numpy as np
 import pandas as pd 
 
@@ -65,8 +64,9 @@ if __name__ == '__main__':
 
     ## STEP0: GET THE TARGET MODEL AND DATA SETS 
     model_lst = [ 'model1', 'model2', 'model7', 
-                  'model8', 'model11', 'RRmodel']
-    data_sets = [ 'rew_data_exp1', 'pain_data_exp1']
+                  'model8', 'model11', 
+                  'modelE1', 'modelE2', 'RRmodel']
+    data_sets = [ 'rew_data_exp1']
 
     ## STEP1: GENERATE TABLES WE PREFERRED
     for data_set in data_sets:
