@@ -3,6 +3,7 @@
 *.ipynb
 *.ipynb_checkpoints
 *.DS_Store 
+utils/__pycache__/
 
 
 # ignore folder 

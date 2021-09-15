@@ -31,6 +31,7 @@ def remake_cols_idx( data, sub_id):
     # the raw data: left stim--1, right stim--0
     # I prefer: left stim--0, right stim--1
     data['action'] = 1 - data['action']
+    data[data['action'].isna()] = int(np.random.choice([0,1]))
 
     ## Numeric the stab-vol index 
     # stable--1, volatile--0
