@@ -85,8 +85,6 @@ def fit( train_data, args):
         fname = f'{path}/results/params-{args.brain_name}-{sub_idx}.csv'
         params.to_csv( fname)
 
-        break 
-
 if __name__ == '__main__':
 
     ## STEP 0: LOAD DATA
