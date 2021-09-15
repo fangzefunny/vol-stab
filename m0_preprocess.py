@@ -63,13 +63,8 @@ def preprocess( exp_folder, exp_id):
             # get data for each subject
             eval(f'{rew_pain}_data')[ sub_id] = remake_cols_idx(
                 pd.read_csv(f'{path}/data/{exp_folder}/{file}'), sub_id
-<<<<<<< HEAD
             ) 
-    
-=======
-            )  
-            
->>>>>>> d2b367c9f28c2244f712463f4cf71043a1c8e228
+
     ## Save the preprocessed 
     with open( f'{path}/data/rew_data_{exp_id}.pkl', 'wb')as handle:
         pickle.dump( rew_data, handle)
@@ -82,13 +77,3 @@ if __name__ == '__main__':
     preprocess( 'data_raw_exp1', 'exp1')        
 
 
-    
-    
-    
-    
-    
-
-
-    
-    
-    
