@@ -32,7 +32,7 @@ def fit( train_data, args):
     start_time = datetime.datetime.now()
        
     if args.n_cores:
-        n_cores = args.n_cores
+        n_cores = np.min( [ args.n_cores, int( mp.cpu_count())])
     else:
         n_cores = int( mp.cpu_count())
     n_cores = np.min( [ n_cores, args.fit_num])
