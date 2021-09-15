@@ -57,8 +57,8 @@ def preprocess( exp_folder, exp_id):
             # get data for each subject
             processed_data[ sub_id] = remake_cols_idx(
                 pd.read_csv(f'{path}/data/{exp_folder}/{file}'), sub_id
-            )  
-
+            ) 
+    
     ## Save the preprocessed 
     with open( f'{path}/data/processed_{exp_id}.pkl', 'wb')as handle:
         pickle.dump( processed_data, handle)
