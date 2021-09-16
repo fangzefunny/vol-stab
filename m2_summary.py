@@ -48,7 +48,7 @@ def get_criter( model_lst, data_set):
     tab = tab.iloc[:,1:].to_numpy()
 
     ## max of each row 
-    best_num = np.sum( np.tile( np.min( tab, axis=1), [6, 1]).T == tab, axis=0)
+    best_num = np.sum( np.tile( np.min( tab, axis=1), [len(model_lst), 1]).T == tab, axis=0)
     best_num = pd.DataFrame( best_num.reshape([1, -1]), columns=model_lst)
     best_num.to_csv( f'{path}/tables/criter1-{data_set}.csv')
 
@@ -71,8 +71,8 @@ if __name__ == '__main__':
     ## STEP1: GENERATE TABLES WE PREFERRED
     for data_set in data_sets:
         
-        ## Get BIC table
+        # get BIC table
         bic_table( model_lst, data_set)
 
-        ## Criterion 1:
+        # get two comparison criteria
         get_criter( model_lst, data_set)

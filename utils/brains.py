@@ -2,7 +2,7 @@ import numpy as np
 from scipy.special import softmax, logsumexp 
 
 # get the machine epsilon
-eps_ = 1e-18
+eps_ = 1e-10
 max_ = 1e+10
 
 # the replay buffer to store the memory 
@@ -64,16 +64,11 @@ class Basebrain:
     def get_act( self):
         return np.random.choice( self.act_space, p=self.p_a1x)
         
-    def eval_act(self, act):
+    def eval_act( self, act):
         return self.p_a1x[ act]
         
-    def update(self):
+    def update( self):
         return NotImplementedError
-
-    def pi_comp( self):
-        MI = np.sum(self.p_s * self.pi * (np.log( self.pi + eps_)
-                     - np.log( self.p_a.T + eps_)))
-        return MI
 
 '''
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -338,7 +333,20 @@ class RRmodel( model11):
 
         self.p_a1x = (self.p_s.T @ self.pi).reshape([-1]) 
 
-    
+    def pi_comp( self):
+        MI = np.sum(self.p_s * self.pi * (np.log( self.pi + eps_)
+                     - np.log( self.p_a.T + eps_)))
+        if MI > 18:
+            print(1)
+        return MI
+
+    def EQ( self, obs):
+        # get Q
+        mag0, mag1 = obs 
+        Q = np.array([[ mag0,    0],
+                      [    0, mag1]])
+        # EQ = ∑_s ∑π(a|s) Q(s,a)
+        return np.sum( self.p_s * self.pi * Q)
 
     
 
