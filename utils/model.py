@@ -1,5 +1,9 @@
 import numpy as np 
 import pandas as pd 
+import warnings
+# ignore this warnings
+from pandas.core.common import SettingWithCopyWarning
+warnings.simplefilter(action="ignore", category=SettingWithCopyWarning)
 from scipy.optimize import minimize
 
 eps_ = 1e-18
@@ -119,15 +123,15 @@ class subj:
 
         # Create a dataframe to record simulation
         # outcome
-        col_name = [ 'sub_id', 'action', 'state','act_acc', 
-                     'mag0', 'mag1', 'b_type', 'rew',
+        col_name = [ 'sub_id', 'group', 'action', 'state','act_acc', 
+                     'mag0', 'mag1', 'b_type', 'rew', 
                      'p_s','pi_0', 'pi_1', 'nll',
-                     'pi_comp', 'psi_comp']
+                     'pi_comp', 'psi_comp', 'EQ']
 
         # Loop over sample to collect data 
         sim_data = pd.DataFrame( columns=col_name)
-        for i in data:
-            input_sample = data[i].copy()
+        for datum in data:
+            input_sample = datum.copy()
             sim_sample = self._pred_sample( input_sample, params)
             sim_data = pd.concat( [ sim_data, sim_sample], axis=0, sort=True)
         
@@ -146,12 +150,13 @@ class subj:
         data['rew']        = float('nan')
         data['pi_comp']    = float('nan')
         data['psi_comp']   = float('nan') 
+        data['EQ']         = float('nan')
 
         for t in range( data.shape[0]):
 
             # obtain st, at, and rt
-            mag0        = int( data.mag0[t])
-            mag1        = int( data.mag1[t])
+            mag0        = data.mag0[t]
+            mag1        = data.mag1[t]
             obs         = [ mag0, mag1]
             state       = int( data.state[t])
             human_act   = int( data.action[t])
@@ -163,24 +168,24 @@ class subj:
             rew         = obs[ act]
             
             # evaluate action: get p(a|xt)
-            pi_a1x = brain.eval_act( state, act)
-            ll     = brain.eval_act( state, human_act)
+            pi_a1x = brain.eval_act( act)
+            ll     = brain.eval_act( human_act)
 
             # record some vals
             # general output 
-            data['act'][t]            = act
+            data['action'][t]         = act
             data['rew'][t]            = rew
             data['act_acc'][t]        = pi_a1x
-            data['p_s'][t]            = self.p_s
+            data['p_s'][t]            = brain.p_s[ 0, 0]
             data['nll'][t]            = - np.log( ll + eps_)
             
             # add some model specific output
             try: 
-                data['pi_0'][t]       = brain.pi_0
+                data['pi_0'][t]       = brain.pi[ 0, 0]
             except: 
                 pass 
             try: 
-                data['pi_1'][t]       = brain.pi_1
+                data['pi_1'][t]       = brain.pi[ 1, 0]
             except:
                 pass 
             try:
@@ -191,6 +196,10 @@ class subj:
                 data['psi_comp'][t]   = brain.psi_comp()
             except:
                 pass
+            try: 
+                data['EQ'][t]         = brain.EQ( obs)
+            except: 
+                pass 
 
             # store to memory     
             brain.memory.push( obs, state, act, rew, t)
