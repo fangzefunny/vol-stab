@@ -6,6 +6,13 @@ import pandas as pd
 # find the current path
 path = os.path.dirname(os.path.abspath(__file__))
 
+def get_params( data_set, model, sub_idx):
+    '''Show the params of the model
+    '''
+    fname = f'{path}/results/params-{data_set}-{model}-{sub_idx}.csv'
+    res   = pd.read_csv( fname)
+    return res.iloc[ 0, 1:-1].values
+
 def get_bic( data_set, model, sub_idx, m):
     '''Calculate the bic of the model 
     '''
@@ -14,6 +21,26 @@ def get_bic( data_set, model, sub_idx, m):
     model_nll = res.iloc[0, -1]
     n_params  = res.shape[1] - 2
     return 2 * model_nll + np.log(m) * n_params
+
+def param_table( model_lst, data_set):
+    '''Generate parameters for each model
+    '''
+    ## Load data and subj lst
+    with open(f'{path}/data/{data_set}.pkl', 'rb') as handle:
+        data = pickle.load( handle)
+    subj_lst = data.keys()
+
+    ## Create table
+    for model in model_lst:
+        ## 
+        tab = []
+        fname  = f'{path}/results/params-{data_set}-{model}-{list(subj_lst)[0]}.csv'
+        col_nm = pd.read_csv( fname).columns[ 1:-1]
+        for subj in subj_lst:
+            tab.append( get_params( data_set, model, subj))
+
+        tab = pd.DataFrame( np.stack( tab, axis=0), columns=col_nm, index=subj_lst)  
+        tab.to_csv(f'{path}/tables/params_table-{data_set}-{model}.csv' )
 
 def bic_table( model_lst, data_set):
     '''Generate bic for each model and subj
@@ -76,3 +103,5 @@ if __name__ == '__main__':
 
         # get two comparison criteria
         get_criter( model_lst, data_set)
+
+        param_table( model_lst, data_set)
