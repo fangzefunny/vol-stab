@@ -7,6 +7,7 @@ warnings.simplefilter(action="ignore", category=SettingWithCopyWarning)
 from scipy.optimize import minimize
 
 eps_ = 1e-18
+max_ = 1e+8
 
 class subj:
     '''Out loop of the fit
@@ -15,23 +16,35 @@ class subj:
     decision-making model. 
     '''
 
-    def __init__( self, brain):
+    def __init__( self, brain, param_priors=None):
         self.brain = brain 
+        self.param_priors = param_priors
 
     def assign_data( self, data, act_dim):
         self.train_data = data
         self.state_dim  = len( data[0].state.unique())
         self.act_dim    = act_dim  
 
-    def mle_loss(self, params):
+    def mle_loss( self, params):
         '''Calculate total NLL of the data 
            (over all samples)
         '''
         tot_nll = 0.
         for i in range(len(self.train_data)):            
             data = self.train_data[i]
-            tot_nll += self._sample_like( data, params)        
+            tot_nll += ( self._sample_like( data, params) \
+                       + self._prior_loss( params))        
         return tot_nll
+
+    def _prior_loss( self, params):
+        '''Add the prior of the parameters
+        '''
+        tot_pr = 0.
+        if self.param_priors:
+            for prior, param in zip(self.param_priors, params):
+                tot_pr += -np.max([prior.logpdf( param), -max_])
+                
+        return tot_pr
 
     def _sample_like( self, data, params):
         '''Likelihood for one sample

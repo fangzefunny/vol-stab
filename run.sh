@@ -13,6 +13,6 @@ declare models=("model1" "model2" "model7"
 for data_set in "${data_sets[@]}"; do 
     for model in "${models[@]}"; do 
         echo Data set=$data_set Model=$model 
-            python m1_fits.py -d=$data_set -n=$model -s=215 -f=100 -c=100
+            python m1_fits.py -d=$data_set -n=$model -s=215 -f=100 -c=100 -m='map'
     done 
 done
