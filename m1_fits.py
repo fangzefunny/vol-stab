@@ -16,7 +16,8 @@ path = os.path.dirname(os.path.abspath(__file__))
 ## pass the hyperparams
 parser = argparse.ArgumentParser(description='Test for argparse')
 parser.add_argument('--fit_num', '-f', help='fit times', type = int, default=1)
-parser.add_argument('--data_set', '-d', help='which_data', type = str, default='pain_data_exp1')
+parser.add_argument('--data_set', '-d', help='which_data', type = str, default='rew_data_exp1')
+parser.add_argument('--fit_mode', '-m', help='fitting methods', type = str, default='map')
 parser.add_argument('--brain_name', '-n', help='choose agent', default='RRmodel')
 parser.add_argument('--n_cores', '-c', help='number of CPU cores used for parallel computing', 
                                             type=int, default=0)
@@ -24,10 +25,30 @@ parser.add_argument('--seed', '-s', help='random seed', type=int, default=2021)
 args = parser.parse_args()
 args.path = path
 
-def fit( train_data, args):
+def Bayes_fit( train_data, args):
+    '''Bayesian parameters learning
+
+    Population-level prior:
+        p(θ) ~ β( pr1, pr2)
+
+    Parameter estimation:
+        p(θ|D) = p(D|θ)p(θ)
+        p(θ|D) = ∏_i p(d_i|θ)p(θ)
+
+    Log probability:
+        log p(θ|D) = ∑_i p(d_i|θ)p(θ)
+
+    Need to solve:
+        p(d_i|θ) is the mle loss, we
+        need to know p(θ)
+    '''
+    ## Build prior 
+    pass
+
+def mle_fit( train_data, args):
 
     # define the RL2 model 
-    model = subj( args.brain)
+    model = subj( args.brain, args.param_priors)
 
     start_time = datetime.datetime.now()
        
@@ -98,5 +119,5 @@ if __name__ == '__main__':
     args = set_hyperparams(args)   
             
     ## STEP 2: FIT TO EACH SUBJECT
-    fit( train_data, args)
+    mle_fit( train_data, args)
     

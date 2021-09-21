@@ -1,4 +1,5 @@
 import pandas as pd 
+from scipy.stats import beta, uniform
 
 from utils.brains import * 
 
@@ -14,6 +15,7 @@ def set_hyperparams(args):
 
     ## elife models
     args.brain = eval( args.brain_name)
+    args.param_priors = None
     if args.brain_name == 'model1':
         args.bnds = ( ( .000, 1.), ( .1, 10.), ( .000, 20))
         args.params_name = [ 'α_s', 'γ', 'β']
@@ -45,6 +47,8 @@ def set_hyperparams(args):
     elif args.brain_name == 'RRmodel':
         args.bnds = ( ( .000, 1.), ( .000,  1.), ( 1e-4, 1.))
         args.params_name = [ 'α_q', 'α_a', 'τ']
+        if args.fit_mode == 'map':
+            args.param_priors = [ beta(3.5, 3), beta(3, 3.5), uniform(0, 20)]
     
     # if there is input initialization, we do not need to
     # random the intialization 

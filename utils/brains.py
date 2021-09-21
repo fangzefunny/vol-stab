@@ -333,11 +333,14 @@ class RRmodel( model11):
 
         self.p_a1x = (self.p_s.T @ self.pi).reshape([-1]) 
 
+    def log_p( self, x):
+        log_p = np.log( x)
+        log_p[ log_p <= -1e11 ] = 0.
+        return log_p 
+
     def pi_comp( self):
-        MI = np.sum(self.p_s * self.pi * (np.log( self.pi + eps_)
-                     - np.log( self.p_a.T + eps_)))
-        if MI > 18:
-            print(1)
+        MI = np.sum(self.p_s * self.pi * (self.log_p( self.pi)
+                     - self.log_p( self.p_a.T)))
         return MI
 
     def EQ( self, obs):

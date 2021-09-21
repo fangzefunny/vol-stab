@@ -73,6 +73,7 @@ def vis( rdcurves, foi_dict, title_str='', theta=0):
     ax.scatter( pi_comp_dict[ 'CON-Vol'], EQ_dict[ 'CON-Vol'], color=Blue, marker='o')
     ax.set_title( f'Reward-complexity ({title_str})')
     ax.set_xticks([])
+    ax.set_ylim( [ .2, .6])
 
     # show legend 
     ax = axes[ 0, 1]
@@ -95,6 +96,7 @@ def vis( rdcurves, foi_dict, title_str='', theta=0):
     ax.scatter( pi_comp_dict['CON-Stab'], EQ_dict['CON-Stab'], color=Red,  marker='o')
     ax.scatter( pi_comp_dict[ 'CON-Vol'], EQ_dict[ 'CON-Vol'], color=Blue, marker='o')
     ax.set_title( f'Control Stab-Vol ({title_str})')
+    ax.set_ylim( [ .2, .6])
     
     ax = axes[ 1, 1]
     for cond, cl in zip(conds,colors):
@@ -103,8 +105,9 @@ def vis( rdcurves, foi_dict, title_str='', theta=0):
     ax.scatter( pi_comp_dict[ 'MDD-Vol'], EQ_dict[ 'MDD-Vol'], color=Blue, marker='x')
     ax.scatter( pi_comp_dict['GAD-Stab'], EQ_dict['GAD-Stab'], color=Red,  marker='D')
     ax.scatter( pi_comp_dict[ 'GAD-Vol'], EQ_dict[ 'GAD-Vol'], color=Blue, marker='D')
-    ax.set_title( f'Patient stab-vol ({title_str})')
+    ax.set_title( f'Patient Stab-Vol ({title_str})')
     ax.set_yticks([])
+    ax.set_ylim( [ .2, .6])
 
     try:
         plt.savefig( f'{path}/figures/RDfigure.png', dpi=dpi)
@@ -134,6 +137,22 @@ def vis_model_cmp( data_set):
     ax.set_ylim( [ 14000, 18000])
     
     plt.savefig( f'{path}/figures/model_cmp.png', dpi=dpi)
+
+def ttest_table():
+
+    ## Get variable
+    roi_vars = [ 'MDD-Stab', 'MDD-Vol', 
+                 'GAD-Stab', 'GAD-Vol',
+                 'CON-Stab', 'CON-Vol',
+                     'Stab',     'Vol',
+                      'MDD',     'GAD',    'CON']
+    
+    ## Get policy under each conditions
+    
+
+
+
+
  
 if __name__ == '__main__':
 
