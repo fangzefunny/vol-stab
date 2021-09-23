@@ -13,7 +13,7 @@ path = os.path.dirname(os.path.abspath(__file__))
 parser = argparse.ArgumentParser(description='Test for argparse')
 parser.add_argument('--brain_name', '-n', help='choose agent', default='RRmodel')
 parser.add_argument('--data_set', '-d', help='choose data set', default='rew_data_exp1')
-parser.add_argument('--mode', '-m', help='mode to plot', default='simple')
+parser.add_argument('--fit_mode', '-m', help='fitting methods', type = str, default='map')
 args = parser.parse_args()
 
 # define functions
