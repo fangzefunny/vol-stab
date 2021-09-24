@@ -317,7 +317,7 @@ class RRmodel( model11):
     def _load_free_params( self, params):
         self.alpha_s = params[0] # learning rate of state
         self.alpha_a = params[1] # learning rate of choice kernel
-        self.tau     = params[2] # temperature
+        self.beta    = params[2] # temperature
 
     def plan_act( self, obs):
 
@@ -326,8 +326,7 @@ class RRmodel( model11):
         Q = np.array([[ mag0,    0],
                       [    0, mag1]])
         # get π ∝ exp[ βQ(s,a) + log p_a(a)]
-        beta  = np.clip( 1 / self.tau, eps_, max_)
-        log_pi = beta * Q + np.log( self.p_a.T + eps_) #sa
+        log_pi = self.beta * Q + np.log( self.p_a.T + eps_) #sa
         self.pi = np.exp( log_pi - logsumexp( 
                           log_pi, keepdims=True, axis=1)) #sa
 
