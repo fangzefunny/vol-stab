@@ -45,8 +45,8 @@ def set_hyperparams(args):
                       ( .000, 1.), ( .000, 20.), ( .000, 20.), ( .000, 20.))
         args.params_name = [ 'α_q', 'λ', 'r', 'α_a', 'β', 'β_a', 'β_c']
     elif args.brain_name == 'RRmodel':
-        args.bnds = ( ( .000, 1.), ( .000,  1.), ( 1e-4, 1.))
-        args.params_name = [ 'α_q', 'α_a', 'τ']
+        args.bnds = ( ( .000, 1.), ( .000,  1.), ( .00, 20.))
+        args.params_name = [ 'α_q', 'α_a', 'β']
         if args.fit_mode == 'map':
             args.param_priors = [ beta(3.5, 3), beta(3, 3.5), uniform(0, 20)]
     

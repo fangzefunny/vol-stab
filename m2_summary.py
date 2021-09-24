@@ -113,7 +113,7 @@ if __name__ == '__main__':
     model_lst = [ 'model1', 'model2', 'model7', 
                   'model8', 'model11', 
                   'RRmodel']
-    data_sets = [ 'rew_data_exp1']
+    data_sets = [ 'rew_data_exp1', 'pain_data_exp1']
     modes = [ 'nll', 'aic', 'bic']
 
     ## STEP1: GENERATE TABLES WE PREFERRED
