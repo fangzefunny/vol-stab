@@ -49,6 +49,9 @@ def set_hyperparams(args):
         args.params_name = [ 'α_q', 'α_a', 'β']
         if args.fit_mode == 'map':
             args.param_priors = [ beta(3.5, 3), beta(3, 3.5), uniform(0, 20)]
+    elif args.brain_name == 'RRmodel1':
+        args.bnds = ( ( .000, 1.), ( .000,  1.), ( .000,  1.), ( .00, 20.))
+        args.params_name = [ 'α_q', 'α_a', 'α_π', 'β']
     
     # if there is input initialization, we do not need to
     # random the intialization 

@@ -318,7 +318,7 @@ class RRmodel( model11):
         self.alpha_s = params[0] # learning rate of state
         self.alpha_a = params[1] # learning rate of choice kernel
         self.beta    = params[2] # temperature
-
+    
     def plan_act( self, obs):
 
         # get Q
@@ -349,6 +349,34 @@ class RRmodel( model11):
                       [    0, mag1]])
         # EQ = ∑_s ∑π(a|s) Q(s,a)
         return np.sum( self.p_s * self.pi * Q)
+
+class RRmodel1( RRmodel):
+
+    def __init__( self, state_dim, act_dim, params=[]):
+        super().__init__( state_dim, act_dim)
+        if len( params):
+            self._load_free_params( params)
+
+    def _load_free_params( self, params):
+        self.alpha_s  = params[0] # learning rate of state
+        self.alpha_pi = params[1] # learning rate of the policy 
+        self.alpha_a  = params[2] # learning rate of choice kernel
+        self.beta     = params[3] # temperature
+    
+    def plan_act( self, obs):
+        # get Q
+        mag0, mag1 = obs 
+        Q = np.array([[ mag0,    0],
+                      [    0, mag1]])
+        # get π ∝ exp[ βQ(s,a) + log p_a(a)]
+        log_pi = self.beta * Q + np.log( self.p_a.T + eps_) #sa
+        pi_target = np.exp( log_pi - logsumexp( 
+                          log_pi, keepdims=True, axis=1)) #sa
+        self.pi += self.alpha_pi * (pi_target - self.pi)
+
+        self.p_a1x = (self.p_s.T @ self.pi).reshape([-1]) 
+
+
 
     
 
