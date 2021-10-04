@@ -84,14 +84,21 @@ class model1( Basebrain):
             self._load_free_params( params)
     
     def _load_free_params( self, params):
-        self.alpha_s = params[0] # learning rate 
-        self.gamma   = params[1] # risk preference
-        self.beta    = params[2] # inverse temperature
+        self.alpha_s_stab = params[0] # learning rate for the state in the stable task 
+        self.alpha_s_vol  = params[1] # learning rate for the state in the volatile task 
+        self.gamma        = params[2] # risk preference
+        self.beta         = params[3] # inverse temperature
 
     def update( self):
         
         ## Retrieve memory
-        _, _, state, _, _ = self.memory.sample()
+        ctxt, _, _, state, _, _ = self.memory.sample()
+
+        # choose ctxt
+        if ctxt: 
+            alpha_s = self.alpha_s_stab
+        else:
+            alpha_s = self.alpha_s_vol
 
         ## Update p_s
         # calculate δs = It(s) - p_s
@@ -99,7 +106,7 @@ class model1( Basebrain):
         I_st[ state, 0] = 1.
         rpe_s = I_st - self.p_s 
         # p_s = p_s + α_s * δs
-        self.p_s += self.alpha_s * rpe_s 
+        self.p_s += alpha_s * rpe_s 
 
     def plan_act( self, obs):
         
@@ -124,9 +131,10 @@ class model2( model1):
             self._load_free_params( params)
 
     def _load_free_params(self, params):
-        self.alpha_s = params[0] # learning rate 
-        self.lam     = params[1] # mixture of prob and mag
-        self.beta    = params[2] # inverse temperature
+        self.alpha_s_stab = params[0] # learning rate for the state in the stable task 
+        self.alpha_s_vol  = params[1] # learning rate for the state in the volatile task 
+        self.lam          = params[2] # mixture of prob and mag
+        self.beta         = params[3] # inverse temperature
 
     def plan_act(self, obs):
         
@@ -150,10 +158,11 @@ class model7( model2):
             self._load_free_params( params)
 
     def _load_free_params(self, params):
-        self.alpha_s = params[0] # learning rate 
-        self.lam     = params[1] # mixture of prob and mag
-        self.r       = params[2] # nonlinearity 
-        self.beta    = params[3] # inverse temperature
+        self.alpha_s_stab = params[0] # learning rate for the state in the stable task 
+        self.alpha_s_vol  = params[1] # learning rate for the state in the volatile task 
+        self.lam          = params[2] # mixture of prob and mag
+        self.r            = params[3] # nonlinearity 
+        self.beta         = params[4] # inverse temperature
 
     def plan_act(self, obs):
         
@@ -176,11 +185,12 @@ class model8( model7):
             self._load_free_params( params)
 
     def _load_free_params(self, params):
-        self.alpha_s = params[0] # learning rate 
-        self.lam     = params[1] # mixture of prob and mag
-        self.r       = params[2] # nonlinearity 
-        self.beta    = params[3] # inverse temperature
-        self.eps     = params[4] # lapse
+        self.alpha_s_stab = params[0] # learning rate for the state in the stable task 
+        self.alpha_s_vol  = params[1] # learning rate for the state in the volatile task 
+        self.lam          = params[2] # mixture of prob and mag
+        self.r            = params[3] # nonlinearity 
+        self.beta         = params[4] # inverse temperature
+        self.eps          = params[5] # lapse
 
     def plan_act(self, obs):
         
@@ -203,17 +213,24 @@ class model11( model7):
             self._load_free_params( params)
 
     def _load_free_params(self, params):
-        self.alpha_s = params[0] # learning rate 
-        self.lam     = params[1] # mixture of prob and mag
-        self.r       = params[2] # nonlinearity 
-        self.alpha_a = params[3] # learning rate of choice kernel
-        self.beta    = params[4] # inverse temperature
-        self.beta_a  = params[5] # inverse temperature for choice kernel
+        self.alpha_s_stab = params[0] # learning rate for the state in the stable task 
+        self.alpha_s_vol  = params[1] # learning rate for the state in the volatile task 
+        self.lam          = params[2] # mixture of prob and mag
+        self.r            = params[3] # nonlinearity 
+        self.alpha_a      = params[4] # learning rate of choice kernel
+        self.beta         = params[5] # inverse temperature
+        self.beta_a       = params[6] # inverse temperature for choice kernel
 
     def update( self):
 
         ## Retrieve memory
-        _, action, state, _, _ = self.memory.sample()
+        ctxt, _, action, state, _, _ = self.memory.sample()
+
+        # choose ctxt
+        if ctxt: 
+            alpha_s = self.alpha_s_stab
+        else:
+            alpha_s = self.alpha_s_vol
 
         ## Update p_s
         # calculate δs = It(s) - p_s
@@ -221,7 +238,7 @@ class model11( model7):
         I_st[ state, 0] = 1.
         rpe_s = I_st - self.p_s 
         # p_s = p_s + α_s * δs
-        self.p_s += self.alpha_s * rpe_s 
+        self.p_s += alpha_s * rpe_s 
 
         ## Update p_a
         # calculate δa = It(a) - p_a
@@ -250,63 +267,6 @@ class model11( model7):
 %     Model Extension     %
 %%%%%%%%%%%%%%%%%%%%%%%%%%% 
 '''
-class modelE1( model7):
-    '''model extension 1 
-    Release the parameter bounds, see 
-    utils.hyperparams.py
-    '''
-    def __init__( self, state_dim, act_dim, params=[]):
-        super().__init__( state_dim, act_dim)
-        if len( params):
-            self._load_free_params( params)
-
-class modelE1( model11):
-    '''model extension 1 
-    Release the parameter bounds, see 
-    utils.hyperparams.py
-    '''
-    def __init__( self, state_dim, act_dim, params=[]):
-        super().__init__( state_dim, act_dim)
-        if len( params):
-            self._load_free_params( params)
-
-class modelE2( model11):
-
-    def __init__( self, state_dim, act_dim, params=[]):
-        super().__init__( state_dim, act_dim)
-        if len( params):
-            self._load_free_params( params)
-
-    def _load_free_params(self, params):
-        self.alpha_s = params[0] # learning rate 
-        self.lam     = params[1] # mixture of prob and mag
-        self.r       = params[2] # nonlinearity 
-        self.alpha_a = params[3] # learning rate of choice kernel
-        self.beta    = params[4] # inverse temperature
-        self.beta_a  = params[5] # inverse temperature for choice kernel
-        self.beta_c  = params[6] # inverse temperature for choice
-
-    def update( self):
-
-        ## Retrieve memory
-        _, action, state, _, _ = self.memory.sample()
-
-        ## Update p_s
-        # calculate δs = It(s) - p_s
-        I_st = np.zeros( [ self.state_dim, 1])
-        I_st[ state, 0] = 1.
-        rpe_s = I_st - self.p_s 
-        # p_s = p_s + α_s * δs
-        self.p_s += self.alpha_s * rpe_s 
-
-        ## Update p_a
-        # calculate δa = β_c * It(a) - p_a
-        I_at = np.zeros( [ self.act_dim, 1])
-        I_at[ action, 0] = 1.
-        rpe_a = self.beta_c * I_at - self.p_a 
-         # p_a = p_a + α_a * δa
-        self.p_a += self.alpha_a * rpe_a 
-
 class RRmodel( model11):
 
     def __init__( self, state_dim, act_dim, params=[]):
@@ -315,9 +275,10 @@ class RRmodel( model11):
             self._load_free_params( params)
 
     def _load_free_params( self, params):
-        self.alpha_s = params[0] # learning rate of state
-        self.alpha_a = params[1] # learning rate of choice kernel
-        self.beta    = params[2] # temperature
+        self.alpha_s_stab = params[0] # learning rate for the state in the stable task 
+        self.alpha_s_vol  = params[1] # learning rate for the state in the volatile task 
+        self.alpha_a      = params[2] # learning rate of choice kernel
+        self.beta         = params[3] # temperature
     
     def plan_act( self, obs):
 
@@ -358,10 +319,11 @@ class RRmodel1( RRmodel):
             self._load_free_params( params)
 
     def _load_free_params( self, params):
-        self.alpha_s  = params[0] # learning rate of state
-        self.alpha_pi = params[1] # learning rate of the policy 
-        self.alpha_a  = params[2] # learning rate of choice kernel
-        self.beta     = params[3] # temperature
+        self.alpha_s_stab = params[0] # learning rate of state in the stable block
+        self.alpha_s_vol  = params[1] # learning rate of state in the volatile block 
+        self.alpha_pi     = params[2] # learning rate of the policy 
+        self.alpha_a      = params[3] # learning rate of choice kernel
+        self.beta         = params[4] # temperature
     
     def plan_act( self, obs):
         # get Q

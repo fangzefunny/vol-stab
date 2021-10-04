@@ -65,11 +65,12 @@ class subj:
             obs   = [ mag0, mag1]
             # planning the action 
             brain.plan_act( obs)
+            ctxt  = int( data.b_type[t])
             state = int( data.state[t])
             act   = int( data.action[t])
             rew   = obs[ act]
             # store 
-            brain.memory.push( obs, state, act, rew, t)
+            brain.memory.push( ctxt, obs, state, act, rew, t)
             # evaluate: log π(a|xt)
             NLL += - np.log( brain.eval_act( act) + eps_)
             # leanring stage 
