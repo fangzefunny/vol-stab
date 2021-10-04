@@ -112,7 +112,7 @@ if __name__ == '__main__':
     ## STEP0: GET THE TARGET MODEL AND DATA SETS 
     model_lst = [ 'model1', 'model2', 'model7', 
                   'model8', 'model11', 
-                  'RRmodel']
+                  'RRmodel1']
     data_sets = [ 'rew_data_exp1', 'pain_data_exp1']
     modes = [ 'nll', 'aic', 'bic']
 
