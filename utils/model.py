@@ -22,7 +22,7 @@ class subj:
 
     def assign_data( self, data, act_dim):
         self.train_data = data
-        self.state_dim  = len( data[0].state.unique())
+        self.state_dim  = 2#len( data[0].state.unique())
         self.act_dim    = act_dim  
 
     def mle_loss( self, params):
@@ -30,8 +30,8 @@ class subj:
            (over all samples)
         '''
         tot_nll = 0.
-        for i in range(len(self.train_data)):            
-            data = self.train_data[i]
+        for key in self.train_data.keys():            
+            data = self.train_data[key]
             tot_nll += ( self._sample_like( data, params) \
                        + self._prior_loss( params))        
         return tot_nll
@@ -135,16 +135,20 @@ class subj:
         if data == False:
             data = self.train_data
 
+        # subject list 
+        subj_lst = data.keys()
+
         # Create a dataframe to record simulation
         # outcome
         col_name = [ 'sub_id', 'group', 'action', 'state','act_acc', 
-                     'mag0', 'mag1', 'b_type', 'rew', 
+                     'mag0', 'mag1', 'b_type', 'rew', 'human_act',
                      'p_s','pi_0', 'pi_1', 'nll',
                      'pi_comp', 'psi_comp', 'EQ']
 
         # Loop over sample to collect data 
         sim_data = pd.DataFrame( columns=col_name)
-        for datum in data:
+        for subj in subj_lst:
+            datum = data[subj]
             input_sample = datum.copy()
             sim_sample = self._pred_sample( input_sample, params)
             sim_data = pd.concat( [ sim_data, sim_sample], axis=0, sort=True)
@@ -156,15 +160,16 @@ class subj:
         state_dim = len( data.state.unique())
         act_dim = 2
         brain = self.brain( state_dim, act_dim, params) 
-        data['act_acc']    = float('nan')
-        data['p_s']        = float('nan')
-        data['pi_0']       = float('nan')
-        data['pi_1']       = float('nan')
-        data['nll']        = float('nan') 
-        data['rew']        = float('nan')
-        data['pi_comp']    = float('nan')
-        data['psi_comp']   = float('nan') 
-        data['EQ']         = float('nan')
+        data['act_acc']    = np.nan
+        data['p_s']        = np.nan
+        data['pi_0']       = np.nan
+        data['pi_1']       = np.nan
+        data['nll']        = np.nan
+        data['rew']        = np.nan
+        data['pi_comp']    = np.nan
+        data['psi_comp']   = np.nan
+        data['EQ']         = np.nan
+        data['human_act']  = np.nan
 
         for t in range( data.shape[0]):
 
@@ -174,12 +179,13 @@ class subj:
             obs         = [ mag0, mag1]
             state       = int( data.state[t])
             human_act   = int( data.action[t])
+            ctxt        = int( data.b_type[t])
             correct_act = int( data.mag0[t] <= data.mag1[t])
 
             # plan act
             brain.plan_act( obs)
             act         = brain.get_act()
-            rew         = obs[ act]
+            rew         = obs[ act] * (state == act)
             
             # evaluate action: get p(a|xt)
             pi_a1x = brain.eval_act( act)
@@ -192,6 +198,7 @@ class subj:
             data['act_acc'][t]        = pi_a1x
             data['p_s'][t]            = brain.p_s[ 0, 0]
             data['nll'][t]            = - np.log( ll + eps_)
+            data['human_act'][t]      = human_act
             
             # add some model specific output
             try: 
@@ -216,7 +223,7 @@ class subj:
                 pass 
 
             # store to memory     
-            brain.memory.push( obs, state, act, rew, t)
+            brain.memory.push( ctxt, obs, state, act, rew, t)
             
             # model update
             brain.update()            
