@@ -18,32 +18,13 @@ parser = argparse.ArgumentParser(description='Test for argparse')
 parser.add_argument('--fit_num', '-f', help='fit times', type = int, default=1)
 parser.add_argument('--data_set', '-d', help='which_data', type = str, default='rew_data_exp1')
 parser.add_argument('--fit_mode', '-m', help='fitting methods', type = str, default='map')
+parser.add_argument('--fit_group', '-g', help='fit to ind or fit to the whole group', type=str, default='avg')
 parser.add_argument('--brain_name', '-n', help='choose agent', default='RRmodel')
 parser.add_argument('--n_cores', '-c', help='number of CPU cores used for parallel computing', 
                                             type=int, default=0)
 parser.add_argument('--seed', '-s', help='random seed', type=int, default=2021)
 args = parser.parse_args()
 args.path = path
-
-def Bayes_fit( train_data, args):
-    '''Bayesian parameters learning
-
-    Population-level prior:
-        p(θ) ~ β( pr1, pr2)
-
-    Parameter estimation:
-        p(θ|D) = p(D|θ)p(θ)
-        p(θ|D) = ∏_i p(d_i|θ)p(θ)
-
-    Log probability:
-        log p(θ|D) = ∑_i p(d_i|θ)p(θ)
-
-    Need to solve:
-        p(d_i|θ) is the mle loss, we
-        need to know p(θ)
-    '''
-    ## Build prior 
-    pass
 
 def mle_fit( train_data, args):
 
@@ -60,16 +41,14 @@ def mle_fit( train_data, args):
     pool = mp.Pool( n_cores)
     print( f'Using {n_cores} parallel CPU cores')
     
-    for sub_idx in train_data.keys():
+    if args.fit_group == 'avg':
 
-        # get subject data
-        sub_data = [train_data[ sub_idx]]
-        ## Start fitting 
+        # get all data 
         # parameter matrix and loss matrix 
         fit_mat = np.zeros( [args.fit_num, len(args.bnds) + 1])
         # param
         seed = args.seed
-        results = [ pool.apply_async( model.fit, args=(sub_data, args.bnds, seed+2*i)
+        results = [ pool.apply_async( model.fit, args=(train_data, args.bnds, seed+2*i, True)
                         ) for i in range(args.fit_num)]
         for i, p in enumerate(results):
             param, loss  = p.get()
@@ -87,7 +66,7 @@ def mle_fit( train_data, args):
         fit_results = pd.DataFrame( fit_mat, columns=col)
 
         # save fit results
-        fname = f'{path}/results/fit_results-{args.data_set}-{args.brain_name}-{sub_idx}.csv'
+        fname = f'{path}/results/fit_results-{args.data_set}-{args.brain_name}-avg.csv'
         
         # save fitted parameter 
         try:
@@ -104,8 +83,57 @@ def mle_fit( train_data, args):
         params = pd.DataFrame( params_mat, columns=col)
         
         # create filename 
-        fname = f'{path}/results/params-{args.data_set}-{args.brain_name}-{sub_idx}.csv'
+        fname = f'{path}/results/params-{args.data_set}-{args.brain_name}-avg.csv'
         params.to_csv( fname)  
+
+    elif args.fit_group == 'ind':
+
+        for sub_idx in train_data.keys():
+
+            # get subject data
+            sub_data = {'sub_idx': train_data[ sub_idx]}
+            ## Start fitting 
+            # parameter matrix and loss matrix 
+            fit_mat = np.zeros( [args.fit_num, len(args.bnds) + 1])
+            # param
+            seed = args.seed
+            results = [ pool.apply_async( model.fit, args=(sub_data, args.bnds, seed+2*i)
+                            ) for i in range(args.fit_num)]
+            for i, p in enumerate(results):
+                param, loss  = p.get()
+                fit_mat[ i, :-1] = param
+                fit_mat[ i,  -1]  = loss
+            end_time = datetime.datetime.now()
+            
+            # choose the best params and loss 
+            loss_vec = fit_mat[ :, -1]
+            opt_idx, loss_opt = np.argmin( loss_vec), np.min( loss_vec)
+            param_opt = fit_mat[ opt_idx, :-1]
+
+            # save the fit results
+            col = args.params_name + ['loss']
+            fit_results = pd.DataFrame( fit_mat, columns=col)
+
+            # save fit results
+            fname = f'{path}/results/fit_results-{args.data_set}-{args.brain_name}-{sub_idx}.csv'
+            
+            # save fitted parameter 
+            try:
+                fit_results.to_csv( fname)
+            except:
+                os.mkdir( f'{path}/results')
+                fit_results.to_csv( fname)
+
+            # save opt params 
+            params_mat = np.zeros( [1, len(args.bnds) + 1])
+            params_mat[ 0, :-1] = param_opt
+            params_mat[ 0, -1]  = loss_opt
+            col = args.params_name + ['mle_loss']
+            params = pd.DataFrame( params_mat, columns=col)
+            
+            # create filename 
+            fname = f'{path}/results/params-{args.data_set}-{args.brain_name}-{sub_idx}.csv'
+            params.to_csv( fname)  
 
     print( f'\nparallel computing spend {(end_time - start_time).total_seconds():.2f} seconds')
 
