@@ -261,7 +261,23 @@ class model11( model7):
                   self.beta_a * ( self.p_a[ 0, 0] - self.p_a[ 1, 0])))) 
         # choice probability
         self.p_a1x = np.array( [ pit, 1 - pit])     
-        
+
+class model11_m( model11):
+
+    def __init__( self, state_dim, act_dim, params=[]):
+        super().__init__( state_dim, act_dim)
+        if len( params):
+            self._load_free_params( params)
+
+    def _load_free_params(self, params):
+        self.alpha_s_stab = 0 # learning rate for the state in the stable task 
+        self.alpha_s_vol  = 0 # learning rate for the state in the volatile task 
+        self.lam          = params[0] # mixture of prob and mag
+        self.r            = params[1] # nonlinearity 
+        self.alpha_a      = params[2] # learning rate of choice kernel
+        self.beta         = params[3] # inverse temperature
+        self.beta_a       = params[4] # inverse temperature for choice kernel
+
 '''
 %%%%%%%%%%%%%%%%%%%%%%%%%%%
 %     Model Extension     %

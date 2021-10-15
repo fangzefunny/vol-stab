@@ -132,7 +132,7 @@ def vis_model_cmp( data_set):
         for i, mode in enumerate( modes):    
             ax = axes[ i]
             c_tab = pd.read_csv( f'{path}/tables/{citer}-{mode}-{data_set}.csv')
-            ax.bar( model_lst, c_tab.iloc[0, 1:].values)
+            ax.bar( model_lst, c_tab.iloc[0, 1:].values, color=[ .7, .7, .7])
             ax.set_xticklabels( model_lst, rotation=45)
             ax.set_title(mode)
             plt.savefig( f'{path}/figures/{citer}-model_cmp-{data_set}.png', dpi=dpi)
