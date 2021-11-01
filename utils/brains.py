@@ -8,15 +8,23 @@ max_ = 1e+10
 
 # the replay buffer to store the memory 
 class simpleBuffer:
-    
+    '''Simple Buffer 2.0
+
+    Update log: 
+        To prevent naive writing mistakes,
+        we turn the list storage into dict.
+    '''
     def __init__( self):
-        self.lst = []
+        self.m = [] 
         
-    def push( self, *args):
-        self.lst = tuple([ x for x in args]) 
+    def push( self, m_dict):
+        self.m = m_dict 
         
-    def sample( self ):
-        return self.lst
+    def sample( self, *args):
+        lst = []
+        for key in args:
+            lst.append( self.m[ key])
+        return lst
 
 '''
 %%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -93,7 +101,7 @@ class model1( Basebrain):
     def update( self):
         
         ## Retrieve memory
-        ctxt, _, _, state, _, _ = self.memory.sample()
+        ctxt, state = self.memory.sample( 'ctxt', 'state')
 
         # choose ctxt
         if ctxt: 
@@ -225,7 +233,7 @@ class model11( model7):
     def update( self):
 
         ## Retrieve memory
-        ctxt, _, action, state, _, _ = self.memory.sample()
+        ctxt, state, action = self.memory.sample( 'ctxt', 'state', 'action')
 
         # choose ctxt
         if ctxt: 
@@ -307,8 +315,8 @@ class RRmodel( model11):
         log_pi = self.beta * Q + np.log( self.p_a.T + eps_) #sa
         self.pi = np.exp( log_pi - logsumexp( 
                           log_pi, keepdims=True, axis=1)) #sa
-
-        self.p_a1x = (self.p_s.T @ self.pi).reshape([-1]) 
+        # action probability given observation
+        self.p_a1x = ( self.p_s.T @ self.pi).reshape([-1]) 
 
     def log_p( self, x):
         log_p = np.log( x)
@@ -327,35 +335,6 @@ class RRmodel( model11):
                       [    0, mag1]])
         # EQ = ∑_s ∑π(a|s) Q(s,a)
         return np.sum( self.p_s * self.pi * Q)
-
-class RRmodel2( RRmodel):
-
-    def __init__( self, state_dim, act_dim, params=[]):
-        super().__init__( state_dim, act_dim)
-        if len( params):
-            self._load_free_params( params)
-
-    def _load_free_params( self, params):
-        self.alpha_s_stab = params[0] # learning rate for the state in the stable task 
-        self.alpha_s_vol  = params[1] # learning rate for the state in the volatile task 
-        self.alpha_a      = params[2] # learning rate of choice kernel
-        self.beta         = params[3] # temperature
-
-    def plan_act( self, obs):
-
-        # trust in belief
-        
-
-        # get Q
-        mag0, mag1 = obs 
-        Q = np.array([[ mag0,    0],
-                      [    0, mag1]])
-        # get π ∝ exp[ βQ(s,a) + log p_a(a)]
-        log_pi = self.beta * Q + np.log( self.p_a.T + eps_) #sa
-        self.pi = np.exp( log_pi - logsumexp( 
-                          log_pi, keepdims=True, axis=1)) #sa
-
-        self.p_a1x = (self.p_s.T @ self.pi).reshape([-1]) 
 
 class RRmodel1( RRmodel):
 
@@ -379,7 +358,7 @@ class RRmodel1( RRmodel):
         # get π ∝ exp[ βQ(s,a) + log p_a(a)]
         log_pi = self.beta * Q + np.log( self.p_a.T + eps_) #sa
         pi_target = np.exp( log_pi - logsumexp( 
-                          log_pi, keepdims=True, axis=1)) #sa
+                            log_pi, keepdims=True, axis=1)) #sa
         self.pi += self.alpha_pi * (pi_target - self.pi)
 
         self.p_a1x = (self.p_s.T @ self.pi).reshape([-1]) 
@@ -396,10 +375,11 @@ class max_mag( Basebrain):
 
     def plan_act(self, obs):
         mag0, mag1 = obs 
-        mag_diff = mag0 - mag1
+        mag_diff = (mag0 - mag1)
         v = self.beta * mag_diff
         pi = 1 / ( 1 + np.exp( -v)) #sa
         self.p_a1x = [ pi, 1 - pi]
+
 
 
 

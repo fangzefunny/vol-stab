@@ -16,7 +16,7 @@ def sim( brain, sub_idx, seed=2014, data_set='rew_data_exp1'):
 
     # get the data 
     dname = f'data/data_raw_exp1/behavioral_trial_table_{sub_idx}_rew_modelready.csv'
-    task = { '{sub_idx}': remake_cols_idx(pd.read_csv( dname), sub_idx, '')}
+    task = { f'{sub_idx}': remake_cols_idx(pd.read_csv( dname), sub_idx, '')}
 
     # define the RL2 model 
     model = subj( eval(brain))
