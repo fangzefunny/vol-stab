@@ -70,7 +70,9 @@ class subj:
             act   = int( data.action[t])
             rew   = obs[ act]
             # store 
-            brain.memory.push( ctxt, obs, state, act, rew, t)
+            mem = { 'ctxt': ctxt, 'obs': obs, 'state': state,
+                  'action': act,  'rew': rew,     't': t }    
+            brain.memory.push( mem)
             # evaluate: log π(a|xt)
             NLL += - np.log( brain.eval_act( act) + eps_)
             # leanring stage 
@@ -150,6 +152,8 @@ class subj:
         for subj in subj_lst:
             datum = data[subj]
             input_sample = datum.copy()
+            input_sample['human_act'] = input_sample['action'].copy()
+            input_sample['action'] = np.nan 
             sim_sample = self._pred_sample( input_sample, params)
             sim_data = pd.concat( [ sim_data, sim_sample], axis=0, sort=True)
         
@@ -169,7 +173,6 @@ class subj:
         data['pi_comp']    = np.nan
         data['psi_comp']   = np.nan
         data['EQ']         = np.nan
-        data['human_act']  = np.nan
 
         for t in range( data.shape[0]):
 
@@ -178,7 +181,7 @@ class subj:
             mag1        = data.mag1[t]
             obs         = [ mag0, mag1]
             state       = int( data.state[t])
-            human_act   = int( data.action[t])
+            human_act   = int( data.human_act[t])
             ctxt        = int( data.b_type[t])
             correct_act = int( data.mag0[t] <= data.mag1[t])
 
@@ -222,8 +225,10 @@ class subj:
             except: 
                 pass 
 
-            # store to memory     
-            brain.memory.push( ctxt, obs, state, act, rew, t)
+            # what to remember 
+            mem = { 'ctxt': ctxt, 'obs': obs, 'state': state,
+                  'action': act,  'rew': rew,     't': t }    
+            brain.memory.push( mem)
             
             # model update
             brain.update()            
