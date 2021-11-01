@@ -1,4 +1,5 @@
-import numpy as np 
+import numpy as np
+from numpy.core.fromnumeric import argmax 
 from scipy.special import softmax, logsumexp 
 
 # get the machine epsilon
@@ -245,7 +246,7 @@ class model11( model7):
         I_at = np.zeros( [ self.act_dim, 1])
         I_at[ action, 0] = 1.
         rpe_a = I_at - self.p_a 
-         # p_a = p_a + α_a * δa
+        # p_a = p_a + α_a * δa
         self.p_a += self.alpha_a * rpe_a 
 
     def plan_act(self, obs):
@@ -382,6 +383,23 @@ class RRmodel1( RRmodel):
         self.pi += self.alpha_pi * (pi_target - self.pi)
 
         self.p_a1x = (self.p_s.T @ self.pi).reshape([-1]) 
+
+class max_mag( Basebrain):
+
+    def __init__( self, state_dim, act_dim, params=[]):
+        super().__init__( state_dim, act_dim)
+        if len( params):
+            self._load_free_params( params)
+    
+    def _load_free_params( self, params):
+        self.beta = params[0] 
+
+    def plan_act(self, obs):
+        mag0, mag1 = obs 
+        mag_diff = mag0 - mag1
+        v = self.beta * mag_diff
+        pi = 1 / ( 1 + np.exp( -v)) #sa
+        self.p_a1x = [ pi, 1 - pi]
 
 
 

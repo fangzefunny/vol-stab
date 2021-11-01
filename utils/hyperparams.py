@@ -40,6 +40,9 @@ def set_hyperparams(args):
         args.bnds = ( ( .000,  1.), ( .1,  10.), 
                       ( .000, 1.), ( .000, 20.), ( .000, 20.))
         args.params_name = [ 'λ', 'r', 'α_a', 'β', 'β_a']
+    elif args.brain_name == 'max_mag':
+        args.bnds = ( ( .000,  20.))
+        args.params_name = [ 'β',]
     elif args.brain_name == 'RRmodel':
         args.bnds = ( ( .000, 1.), ( .000, 1.), ( .000,  1.), ( .00, 20.))
         args.params_name = [ 'α_s_stab', 'α_s_vol', 'α_a', 'β']
