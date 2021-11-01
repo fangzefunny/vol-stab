@@ -1,4 +1,5 @@
-import numpy as np 
+import numpy as np
+from numpy.core.fromnumeric import argmax 
 from scipy.special import softmax, logsumexp 
 
 # get the machine epsilon
@@ -245,7 +246,7 @@ class model11( model7):
         I_at = np.zeros( [ self.act_dim, 1])
         I_at[ action, 0] = 1.
         rpe_a = I_at - self.p_a 
-         # p_a = p_a + α_a * δa
+        # p_a = p_a + α_a * δa
         self.p_a += self.alpha_a * rpe_a 
 
     def plan_act(self, obs):
@@ -327,6 +328,35 @@ class RRmodel( model11):
         # EQ = ∑_s ∑π(a|s) Q(s,a)
         return np.sum( self.p_s * self.pi * Q)
 
+class RRmodel2( RRmodel):
+
+    def __init__( self, state_dim, act_dim, params=[]):
+        super().__init__( state_dim, act_dim)
+        if len( params):
+            self._load_free_params( params)
+
+    def _load_free_params( self, params):
+        self.alpha_s_stab = params[0] # learning rate for the state in the stable task 
+        self.alpha_s_vol  = params[1] # learning rate for the state in the volatile task 
+        self.alpha_a      = params[2] # learning rate of choice kernel
+        self.beta         = params[3] # temperature
+
+    def plan_act( self, obs):
+
+        # trust in belief
+        
+
+        # get Q
+        mag0, mag1 = obs 
+        Q = np.array([[ mag0,    0],
+                      [    0, mag1]])
+        # get π ∝ exp[ βQ(s,a) + log p_a(a)]
+        log_pi = self.beta * Q + np.log( self.p_a.T + eps_) #sa
+        self.pi = np.exp( log_pi - logsumexp( 
+                          log_pi, keepdims=True, axis=1)) #sa
+
+        self.p_a1x = (self.p_s.T @ self.pi).reshape([-1]) 
+
 class RRmodel1( RRmodel):
 
     def __init__( self, state_dim, act_dim, params=[]):
@@ -353,6 +383,23 @@ class RRmodel1( RRmodel):
         self.pi += self.alpha_pi * (pi_target - self.pi)
 
         self.p_a1x = (self.p_s.T @ self.pi).reshape([-1]) 
+
+class max_mag( Basebrain):
+
+    def __init__( self, state_dim, act_dim, params=[]):
+        super().__init__( state_dim, act_dim)
+        if len( params):
+            self._load_free_params( params)
+    
+    def _load_free_params( self, params):
+        self.beta = params[0] 
+
+    def plan_act(self, obs):
+        mag0, mag1 = obs 
+        mag_diff = mag0 - mag1
+        v = self.beta * mag_diff
+        pi = 1 / ( 1 + np.exp( -v)) #sa
+        self.p_a1x = [ pi, 1 - pi]
 
 
 
