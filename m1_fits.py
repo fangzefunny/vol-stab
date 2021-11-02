@@ -48,7 +48,7 @@ def mle_fit( train_data, args):
         fit_mat = np.zeros( [args.fit_num, len(args.bnds) + 1])
         # param
         seed = args.seed
-        results = [ pool.apply_async( model.fit, args=(train_data, args.bnds, seed+2*i, True)
+        results = [ pool.apply_async( model.fit, args=(train_data, args.bnds, seed+2*i)
                         ) for i in range(args.fit_num)]
         for i, p in enumerate(results):
             param, loss  = p.get()
