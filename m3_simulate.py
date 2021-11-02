@@ -13,7 +13,7 @@ path = os.path.dirname(os.path.abspath(__file__))
 parser = argparse.ArgumentParser(description='Test for argparse')
 parser.add_argument('--brain_name', '-n', help='choose agent', default='RRmodel')
 parser.add_argument('--data_set', '-d', help='choose data set', default='rew_data_exp1')
-parser.add_argument('--fit_mode', '-m', help='fitting methods', type = str, default='map')
+parser.add_argument('--fit_mode', '-m', help='fitting methods', type = str, default='mle')
 args = parser.parse_args()
 
 # define functions
@@ -46,7 +46,7 @@ def simulate( args):
     ## Start simulation
     for sub_idx in train_data.keys():
         # get subject data
-        sub_data = [train_data[ sub_idx]]
+        sub_data = {sub_idx:train_data[ sub_idx]}
         # simulate
         sim_data[sub_idx] = sim_subj( sub_data, sub_idx, args)
 
