@@ -363,6 +363,62 @@ class RRmodel1( RRmodel):
 
         self.p_a1x = (self.p_s.T @ self.pi).reshape([-1]) 
 
+class RRmodel_f1( RRmodel):
+
+    def __init__( self, state_dim, act_dim, params=[]):
+        super().__init__( state_dim, act_dim)
+        if len( params):
+            self._load_free_params( params)
+
+    def _load_free_params( self, params):
+        self.alpha_s_stab = params[0] # learning rate of state in the stable block
+        self.alpha_s_vol  = params[1] # learning rate of state in the volatile block 
+        self.alpha_a      = params[2] # learning rate of choice kernel
+        self.beta         = params[3] # temperature
+        self.gamma        = params[4] # risk parameter 
+    
+    def plan_act( self, obs):
+
+        # approximate epistemic uncertainty
+        pt = self.p_s[ 0, 0] 
+        pt = np.min( [ np.max( [ abs( pt - .5) ** self.gamma * np.sign( pt - .5) 
+                       + .5, 0 ] ), 1])
+        p_s = np.array( [[ pt, 1 -pt]]).T #s1
+        # get Q
+        mag0, mag1 = obs 
+        Q = np.array([[ mag0,    0],
+                      [    0, mag1]])
+        # get π ∝ exp[ βQ(s,a) + log p_a(a)]
+        log_pi = self.beta * Q + np.log( self.p_a.T + eps_) #sa
+        self.pi = np.exp( log_pi - logsumexp( 
+                          log_pi, keepdims=True, axis=1)) #sa
+        # action probability given observation
+        self.p_a1x = ( p_s.T @ self.pi).reshape([-1])
+
+class RRmodel_f2( RRmodel_f1):
+
+    def __init__( self, state_dim, act_dim, params=[]):
+        super().__init__( state_dim, act_dim)
+        if len( params):
+            self._load_free_params( params)
+    
+    def plan_act( self, obs):
+
+        # approximate epistemic uncertainty
+        pt = self.p_s[ 0, 0] 
+        pt = np.exp( -(-np.log( pt) )** self.gamma)
+        p_s = np.array( [[ pt, 1 -pt]]).T #s1
+        # get Q
+        mag0, mag1 = obs 
+        Q = np.array([[ mag0,    0],
+                      [    0, mag1]])
+        # get π ∝ exp[ βQ(s,a) + log p_a(a)]
+        log_pi = self.beta * Q + np.log( self.p_a.T + eps_) #sa
+        self.pi = np.exp( log_pi - logsumexp( 
+                          log_pi, keepdims=True, axis=1)) #sa
+        # action probability given observation
+        self.p_a1x = ( p_s.T @ self.pi).reshape([-1])
+
 class max_mag( Basebrain):
 
     def __init__( self, state_dim, act_dim, params=[]):
