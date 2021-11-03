@@ -40,10 +40,6 @@ def set_hyperparams(args):
         args.bnds = ( ( .000,  1.), ( .1,  10.), 
                       ( .000, 1.), ( .000, 20.), ( .000, 20.))
         args.params_name = [ 'λ', 'r', 'α_a', 'β', 'β_a']
-    elif args.brain_name == 'model11_m':
-        args.bnds = ( ( .000,  1.), ( .1,  10.), 
-                      ( .000, 1.), ( .000, 20.), ( .000, 20.))
-        args.params_name = [ 'r', 'α_a', 'β', 'β_a']
     elif args.brain_name == 'max_mag':
         args.bnds = [( .000,  20.)]
         args.params_name = [ 'β',]
@@ -52,7 +48,13 @@ def set_hyperparams(args):
         args.params_name = [ 'α_s_stab', 'α_s_vol', 'α_a', 'β']
         if args.fit_mode == 'map':
             args.param_priors = [ beta(3.5, 3), beta(3, 3.5), uniform(0, 20)]
-    
+    elif args.brain_name == 'RRmodel_f1':
+        args.bnds = ( ( .000, 1.), ( .000, 1.), ( .000,  1.), ( .00, 20.), ( .00, 10.))
+        args.params_name = [ 'α_s_stab', 'α_s_vol', 'α_a', 'β', 'γ']
+    elif args.brain_name == 'RRmodel_f2':
+        args.bnds = ( ( .000, 1.), ( .000, 1.), ( .000,  1.), ( .00, 20.), ( .00, 1.))
+        args.params_name = [ 'α_s_stab', 'α_s_vol', 'α_a', 'β', 'γ']
+
     # if there is input initialization, we do not need to
     # random the intialization 
     if len(args.init) > 0:
