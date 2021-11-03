@@ -54,6 +54,11 @@ def set_hyperparams(args):
     elif args.brain_name == 'RRmodel_f2':
         args.bnds = ( ( .000, 1.), ( .000, 1.), ( .000,  1.), ( .00, 20.), ( .00, 1.))
         args.params_name = [ 'α_s_stab', 'α_s_vol', 'α_a', 'β', 'γ']
+    elif args.brain_name == 'dual_sys':
+        args.bnds = ( ( .000, 1.), ( .000, 1.), ( .000,  1.), ( .00, 20.), ( .00, 1.))
+        args.params_name = [ 'α_s_stab', 'α_s_vol', 'w', 'α_a', 'β']
+
+
 
     # if there is input initialization, we do not need to
     # random the intialization 

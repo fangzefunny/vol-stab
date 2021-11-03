@@ -436,7 +436,71 @@ class max_mag( Basebrain):
         pi = 1 / ( 1 + np.exp( -v)) #sa
         self.p_a1x = [ pi, 1 - pi]
 
+class model_dual_system( Basebrain):
 
+    def __init__( self, state_dim, act_dim, params=[]):
+        super().__init__( state_dim, act_dim)
+        if len( params):
+            self._load_free_params( params)
+
+    def _load_free_params(self, params):
+        self.alpha_s_stab = params[0] # learning rate for the state in the stable task 
+        self.alpha_s_vol  = params[1] # learning rate for the state in the volatile task 
+        self.weight       = params[2] # mixture of pi and perservation 
+        self.alpha_a      = params[3] # learning rate of choice kernel
+        self.beta         = params[4] # inverse temperature
+
+    def update( self):
+
+        ## Retrieve memory
+        ctxt, state, action = self.memory.sample( 'ctxt', 'state', 'action')
+
+        # choose ctxt
+        if ctxt: 
+            alpha_s = self.alpha_s_stab
+        else:
+            alpha_s = self.alpha_s_vol
+
+        ## Update p_s
+        # calculate δs = It(s) - p_s
+        I_st = np.zeros( [ self.state_dim, 1])
+        I_st[ state, 0] = 1.
+        rpe_s = I_st - self.p_s 
+        # p_s = p_s + α_s * δs
+        self.p_s += alpha_s * rpe_s 
+
+        ## Update weight
+        k = self.p_a[ 0, 0]
+        p1_o1a = self.p1t ** (1-state) * (1-self.p1t) ** state
+        p2_o1a = k ** (1-state) * (1-k) ** state
+        self.weight = (self.weight * p1_o1a) /\
+                      (self.weight * p1_o1a + (1-self.weight) * p2_o1a)
+
+        ## Update p_a
+        # calculate δa = It(a) - p_a
+        I_at = np.zeros( [ self.act_dim, 1])
+        I_at[ action, 0] = 1.
+        rpe_a = I_at - self.p_a 
+        # p_a = p_a + α_a * δa
+        self.p_a += self.alpha_a * rpe_a 
+
+    def plan_act(self, obs):
+        
+        # unpack observation
+        mag0, mag1 = obs
+        pt = self.p_s[ 0, 0] 
+        # mixture of probability and magnitude 
+        pt = np.min( [ np.max( [ abs( pt - .5) ** self.gamma * np.sign( pt - .5) 
+                       + .5, 0 ] ), 1])
+        v1t = pt * mag0 - ( 1 - pt) * mag1
+        # softmax action selection 
+        self.p1t = 1 / ( 1 + np.exp( - ( self.beta * v1t)))
+        p1_a1x = np.array( [ self.p1t, 1 - self.p1t])
+        # comebine
+        self.p_a1x = self.weight * p1_a1x +\
+               ( 1 - self.weight) * self.p_a
+
+    
 
 
     

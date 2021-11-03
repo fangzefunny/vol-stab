@@ -107,7 +107,7 @@ def mle_fit( train_data, args):
             
             # choose the best params and loss 
             loss_vec = fit_mat[ :, -1]
-            opt_idx, loss_opt = np.argmin( loss_vec), np.min( loss_vec)
+            opt_idx, loss_opt = np.nanargmin( loss_vec), np.nanmin( loss_vec)
             param_opt = fit_mat[ opt_idx, :-1]
 
             # save the fit results

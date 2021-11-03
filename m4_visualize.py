@@ -119,10 +119,9 @@ def vis_model_cmp( data_set):
     nr = 1
     nc = 3 
     
-
-    model_lst = [ 'model1', 'model2', 'model7', 
-                  'model8', 'model11', 
-                  'RRmodel1']
+    model_lst = [ 'model1', 'model2', 
+                  'model11', 'RRmodel',
+                  'RRmodel_f1', 'RRmodel_f2']
     modes     = [ 'nll', 'aic', 'bic']
     criteria  = [ 'criter1', 'criter2']
 

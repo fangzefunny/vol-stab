@@ -5,8 +5,8 @@ python m0_preprocess.py
 
 ## declare all models and all data sets
 declare data_sets=("rew_data_exp1")
-declare groups=("ind" "avg")
-declare models=("RRmodel_f1" "RRmodel_f2")
+declare groups=("avg")
+declare models=("dual_sys")
 #declare models=("model1" "model2" "model11" "RRmodel")
 
 ## step 1: fit the model
