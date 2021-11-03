@@ -436,7 +436,7 @@ class max_mag( Basebrain):
         pi = 1 / ( 1 + np.exp( -v)) #sa
         self.p_a1x = [ pi, 1 - pi]
 
-class model_dual_system( Basebrain):
+class dual_sys( Basebrain):
 
     def __init__( self, state_dim, act_dim, params=[]):
         super().__init__( state_dim, act_dim)
