@@ -449,7 +449,7 @@ class dual_sys( Basebrain):
         self.weight       = params[2] # mixture of pi and perservation 
         self.alpha_a      = params[3] # learning rate of choice kernel
         self.beta         = params[4] # inverse temperature
-
+        self.gamma        = params[5]
     def update( self):
 
         ## Retrieve memory

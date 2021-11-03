@@ -55,8 +55,9 @@ def set_hyperparams(args):
         args.bnds = ( ( .000, 1.), ( .000, 1.), ( .000,  1.), ( .00, 20.), ( .00, 1.))
         args.params_name = [ 'α_s_stab', 'α_s_vol', 'α_a', 'β', 'γ']
     elif args.brain_name == 'dual_sys':
-        args.bnds = ( ( .000, 1.), ( .000, 1.), ( .000,  1.), ( .00, 20.), ( .00, 1.))
-        args.params_name = [ 'α_s_stab', 'α_s_vol', 'w', 'α_a', 'β']
+        args.bnds = ( ( .000, 1.), ( .000, 1.), ( .000,  1.), ( .00, 20.), 
+                      ( .00, 1.), ( .00, 10.))
+        args.params_name = [ 'α_s_stab', 'α_s_vol', 'w', 'α_a', 'β', 'γ']
 
 
 
