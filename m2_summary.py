@@ -110,10 +110,10 @@ def get_criter( model_lst, data_set, mode='bic'):
 if __name__ == '__main__':
 
     ## STEP0: GET THE TARGET MODEL AND DATA SETS 
-    model_lst = [ 'model1', 'model2', 'model7', 
-                  'model8', 'model11', 
-                  'RRmodel']
-    data_sets = [ 'rew_data_exp1', 'pain_data_exp1']
+    model_lst = [ 'model1', 'model2', 
+                  'model11', 'RRmodel',
+                  'RRmodel_f1', 'RRmodel_f2']
+    data_sets = [ 'rew_data_exp1',]
     modes = [ 'nll', 'aic', 'bic']
 
     ## STEP1: GENERATE TABLES WE PREFERRED
