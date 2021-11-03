@@ -498,7 +498,7 @@ class dual_sys( Basebrain):
         p1_a1x = np.array( [ self.p1t, 1 - self.p1t])
         # comebine
         self.p_a1x = self.weight * p1_a1x +\
-               ( 1 - self.weight) * self.p_a
+               ( 1 - self.weight) * self.p_a.reshape([-1])
 
     
 
