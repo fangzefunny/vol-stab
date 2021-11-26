@@ -3,7 +3,7 @@ from numpy.core.fromnumeric import argmax
 from scipy.special import softmax, logsumexp 
 
 # get the machine epsilon
-eps_ = 1e-10
+eps_ = 1e-12
 max_ = 1e+10
 
 # the replay buffer to store the memory 
@@ -31,7 +31,6 @@ class simpleBuffer:
 %    Base agent class    %
 %%%%%%%%%%%%%%%%%%%%%%%%%% 
 '''
-
 class Basebrain:
     
     def __init__( self, state_dim, act_dim):
@@ -68,15 +67,24 @@ class Basebrain:
                           ) * 1 / self.act_dim
     
     def plan_act( self, obs):
+        '''Generate action given observation
+            p(a|xt)
+        '''
         return NotImplementedError
         
     def get_act( self):
+        '''Sample from p(a|xt)
+        '''
         return np.random.choice( self.act_space, p=self.p_a1x)
         
     def eval_act( self, act):
+        '''get from p(at|xt)
+        '''
         return self.p_a1x[ act]
         
     def update( self):
+        '''Learning 
+        '''
         return NotImplementedError
 
 '''
@@ -84,7 +92,6 @@ class Basebrain:
 %     Models in the paper     %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 '''
-
 class model1( Basebrain):
 
     def __init__( self, state_dim, act_dim, params=[]):
@@ -157,7 +164,6 @@ class model2( model1):
         pit = 1 / ( 1 + np.exp( -self.beta * vt))
         # choice probability
         self.p_a1x = np.array( [ pit, 1 - pit])
-
 
 class model7( model2):
 
@@ -450,6 +456,7 @@ class dual_sys( Basebrain):
         self.alpha_a      = params[3] # learning rate of choice kernel
         self.beta         = params[4] # inverse temperature
         self.gamma        = params[5]
+        
     def update( self):
 
         ## Retrieve memory
@@ -499,8 +506,6 @@ class dual_sys( Basebrain):
         # comebine
         self.p_a1x = self.weight * p1_a1x +\
                ( 1 - self.weight) * self.p_a.reshape([-1])
-
-    
 
 
     

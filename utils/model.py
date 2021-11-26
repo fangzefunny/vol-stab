@@ -25,29 +25,22 @@ class subj:
         self.state_dim  = 2#len( data[0].state.unique())
         self.act_dim    = act_dim  
 
-    def mle_loss( self, params):
-        '''Calculate total NLL of the data 
-           (over all samples)
+    def loss_fn(self, params, data):
+        '''Total likelihood
+        log p(D|θ) = -log ∏_i p(D_i|θ)
+                   = ∑_i -log p( D_i|θ )
+        or Maximum a posterior 
+        log p(θ|D) = ∑_i -log p( D_i|θ ) + -log p(θ)
         '''
-        tot_nll = 0.
-        for key in self.train_data.keys():            
-            data = self.train_data[key]
-            tot_nll += ( self._sample_like( data, params) \
-                       + self._prior_loss( params))        
-        return tot_nll
+        tot_loss = [ self._like( params, data[key] \
+                   + self._prior( params)) 
+                           for key in data.keys()]        
+        return np.sum( tot_loss)
 
-    def _prior_loss( self, params):
-        '''Add the prior of the parameters
-        '''
-        tot_pr = 0.
-        if self.param_priors:
-            for prior, param in zip(self.param_priors, params):
-                tot_pr += -np.max([prior.logpdf( param), -max_])
-                
-        return tot_pr
-
-    def _sample_like( self, data, params):
+    def _like( self, params, data):
         '''Likelihood for one sample
+
+        -log p( D_i|θ )
 
         In RL, each sample is a block of experiment,
         Because it is independent across experiment.
@@ -80,51 +73,37 @@ class subj:
         
         return NLL
 
-    def fit( self, data, bnds, seed, verbose=False, init=[]):
-        '''Core fn used to do one fit
+    def _prior( self, params):
+        '''Add the prior of the parameters
         '''
+        tot_pr = 0.
+        if self.param_priors:
+            for prior, param in zip(self.param_priors, params):
+                tot_pr += -np.max([prior.logpdf( param), -max_])
+        return tot_pr
 
-        # prepare for the fit
-        np.random.seed( seed)
-        act_dim = 2
-        self.assign_data( data, act_dim)
-        n_params = len( bnds)
-
-        ## init the optimization params
-        # usually there is no init
-        if len( init) == 0:
-            # init parameters
-            param0 = list() 
-            for i in range( n_params):
-                i0 = bnds[i][0] + ( bnds[i][1] - bnds[i][0]
-                                  ) * np.random.rand()
-                param0.append( i0)
-        # sometimes we fix initalization
-        else: 
-            param0 = init 
-    
-        ## start fit
-        if verbose:
-            print( f'''
-                    Init with params:
-                        {param0} 
-                    ''')
-        res = minimize( self.mle_loss,          # optimize object    
-                        param0,                 # initialization
-                        bounds= bnds,           # param bound 
-                        options={'disp': verbose} # verbose loss
-                        )
-        if verbose:
-            print( f'''
-                    Fitted params: {res.x}
-                    MLE loss: {res.fun}
-                    ''')
-            
-        # select the optimal param set 
-        param_opt = res.x
-        loss_opt  = res.fun
+    def fit( self, data, pbnds, bnds=None, seed=2021, 
+                init=None, verbose=False,):
+        '''Fit the parameter using optimization 
+        '''
+        # Init params
+        if init:
+            # if there are assigned params
+            param0 = init
+        else:
+            # random init from the possible bounds 
+            rng = np.random.RandomState( seed)
+            param0 = [pbnd[0] + (pbnd[ 1] - pbnd[0]
+                     ) * rng.rand() for pbnd in pbnds]
+                     
+        ## Fit the params 
+        verbose and print( 'init with params: ', param0) 
+        res = minimize( self.loss_fn, param0, args=( data), 
+                        bounds=bnds, options={'disp': verbose})
+        verbose and print( f'''  Fitted params: {res.x}, 
+                    MLE loss: {res.fun}''')
         
-        return param_opt, loss_opt
+        return res.x, res.fun 
 
     def pred( self, params, data=False):
         '''Model prediction/simulation
@@ -132,11 +111,6 @@ class subj:
         Default:
             use the train data and generate train target
         '''
-
-        # load the train data if no test data
-        if data == False:
-            data = self.train_data
-
         # subject list 
         subj_lst = data.keys()
 

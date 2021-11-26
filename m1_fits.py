@@ -2,12 +2,14 @@ import argparse
 import os 
 import pickle
 import datetime 
-import pandas as pd
-# multi processing 
+
 import multiprocessing as mp
+import pandas as pd
+
+from sklearn.model_selection import KFold
 
 from utils.model import subj
-from utils.hyperparams import set_hyperparams
+from utils.params import set_hyperparams
 from utils.brains import *
 
 # find the current path
@@ -17,135 +19,154 @@ path = os.path.dirname(os.path.abspath(__file__))
 parser = argparse.ArgumentParser(description='Test for argparse')
 parser.add_argument('--fit_num', '-f', help='fit times', type = int, default=1)
 parser.add_argument('--data_set', '-d', help='which_data', type = str, default='rew_data_exp1')
-parser.add_argument('--fit_mode', '-m', help='fitting methods', type = str, default='mle')
-parser.add_argument('--fit_group', '-g', help='fit to ind or fit to the whole group', type=str, default='avg')
+parser.add_argument('--loss_fn', '-l', help='fitting methods', type = str, default='mle')
+parser.add_argument('--group', '-g', help='fit to ind or fit to the whole group', type=str, default='avg')
 parser.add_argument('--brain_name', '-n', help='choose agent', default='dual_sys')
+parser.add_argument('--cross_valid', '-k', help='do cross validatio or not', default=0)
 parser.add_argument('--n_cores', '-c', help='number of CPU cores used for parallel computing', 
                                             type=int, default=0)
 parser.add_argument('--seed', '-s', help='random seed', type=int, default=2021)
 args = parser.parse_args()
 args.path = path
 
-def mle_fit( train_data, args):
+# create the folders for this folder
+if not os.path.exists(f'{path}/fits'):
+    os.mkdir(f'{path}/fits')
+if not os.path.exists(f'{path}/fits/{args.agent_name}'):
+    os.mkdir(f'{path}/fits/{args.agent_name}')
 
-    # define the RL2 model 
-    model = subj( args.brain, args.param_priors)
+def fit_parallel( data, pool, model, verbose, args):
 
+    # parameter matrix and loss matrix 
+    seed = args.seed
+    n_params = len( args.bnds)
+
+    if args.cross_valid:
+        kf = KFold( n_splits=5)
+        params_lst = []
+        nll = aic = bic = 0 
+        for train_blks, test_blks in kf.split(data.keys()):
+            m_data = np.sum([ data[ train_blk].shape[0] 
+                           for train_blk in train_blks])
+            train_data = { train_blk: data[ train_blk] 
+                           for train_blk in train_blks}
+            test_data  = { test_blk:  data[ test_blk] 
+                           for test_blk  in  test_blks}
+            opt_nll   = np.inf 
+            results = [ pool.apply_async( model.fit, 
+                            args=( train_data, args.bnds, args.bnds, 
+                                    seed+2*i, verbose)
+                            ) for i in range(args.fit_num)]
+            for p in results:
+                params, _ = p.get()
+                loss = model.like_fn( params, test_data)
+                if loss < opt_nll:
+                    opt_nll, opt_params = loss, params 
+                    # aic = 2*k + 2*nll 
+                    opt_aic = n_params*2 + 2*nll
+                    # bic = log(n)*k + 2*nll
+                    opt_bic = n_params*m_data + 2*nll
+            nll += opt_nll
+            aic += opt_aic
+            bic += opt_bic  
+            params_lst.append( opt_params)
+
+        # paras estimation
+        param_lst = np.vstack( params_lst)
+        param_mean = np.mean( param_lst, axis=0)
+        param_std  = np.std(  param_lst, aixs=0)
+        fit_mat = np.vstack( np.hstack( [ param_mean, nll, aic, bic]),
+                             np.hstack( [ param_std,  nll, aic, bic]))
+    else: 
+        m_data = np.sum([ data[key].shape[0] 
+                           for key in data.keys()])
+        results = [ pool.apply_async( model.fit, 
+                        args=( data, args.bnds, args.bnds, 
+                                seed+2*i, verbose)
+                        ) for i in range(args.fit_num)]
+        opt_nll   = np.inf 
+        for p in results:
+            params, loss = p.get()
+            if loss < opt_nll:
+                opt_nll, opt_params = loss, params 
+                # aic = 2*k + 2*nll 
+                aic = n_params*2 + 2*opt_nll
+                # bic = log(n)*k + 2*nll
+                bic = n_params*m_data + 2*opt_nll
+        fit_mat = np.hstack( [ opt_params, opt_nll, aic, bic]).reshape([ 1, -1])
+        
+    # save the fit results
+    col = args.params_name + [ 'nll', 'aic', 'bic']
+    fit_res = pd.DataFrame( fit_mat, columns=col)
+
+    return fit_res 
+
+def fit( data, args):
+
+    ## Define the RL model 
+    model = subj( args.agent)
+    
+    ## Start 
     start_time = datetime.datetime.now()
-       
-    if args.n_cores:
-        n_cores = np.min( [ args.n_cores, int( mp.cpu_count())])
-    else:
-        n_cores = int( mp.cpu_count())
+    
+    ## Get the multiprocessing pool
+    n_cores = args.n_cores if args.n_cores else int( mp.cpu_count()) 
     n_cores = np.min( [ n_cores, args.fit_num])
     pool = mp.Pool( n_cores)
     print( f'Using {n_cores} parallel CPU cores')
+
+    ## Fit params to each individual 
+    if args.group == 'ind':
+        for sub_idx in data.keys():
+            sub_data = data[ sub_idx]
+            print( f'Fitting subject {sub_idx}')
+            fit_res = fit_parallel( sub_data, pool, model, False, args)
+            pname = f'{path}/fits/{args.agent_name}/params-{args.data_set}-{sub_idx}.csv'
+            fit_res.to_csv( pname)
+
+    ## Fit params to the population level
+    elif args.group == 'avg':
+        fit_res = fit_parallel( data, pool, model, True, args)
+        pname = f'{path}/fits/{args.agent_name}/params-{args.data_set}-avg.csv'
+        fit_res.to_csv( pname)
     
-    if args.fit_group == 'avg':
+    ## END!!!
+    end_time = datetime.datetime.now()
+    print( '\nparallel computing spend {:.2f} seconds'.format(
+            (end_time - start_time).total_seconds()))
 
-        # get all data 
-        # parameter matrix and loss matrix 
-        fit_mat = np.zeros( [args.fit_num, len(args.bnds) + 1])
-        # param
-        seed = args.seed
-        results = [ pool.apply_async( model.fit, args=(train_data, args.bnds, seed+2*i)
-                        ) for i in range(args.fit_num)]
-        for i, p in enumerate(results):
-            param, loss  = p.get()
-            fit_mat[ i, :-1] = param
-            fit_mat[ i,  -1]  = loss
-        end_time = datetime.datetime.now()
-        
-        # choose the best params and loss 
-        loss_vec = fit_mat[ :, -1]
-        opt_idx, loss_opt = np.argmin( loss_vec), np.min( loss_vec)
-        param_opt = fit_mat[ opt_idx, :-1]
+def summary( data, args):
 
-        # save the fit results
-        col = args.params_name + ['loss']
-        fit_results = pd.DataFrame( fit_mat, columns=col)
+    ## Prepare storage
+    n_sub    = len( data.keys())
+    n_params = len( args.bnds)
+    res_mat = np.zeros( [ n_sub, n_params+3]) + np.nan 
+    res_smry = np.zeros( [ 2, n_params+3]) + np.nan 
+    folder   = f'{path}/fits/{args.agent_name}'
 
-        # save fit results
-        fname = f'{path}/results/fit_results-{args.data_set}-{args.brain_name}-avg.csv'
-        
-        # save fitted parameter 
-        try:
-            fit_results.to_csv( fname)
-        except:
-            os.mkdir( f'{path}/results')
-            fit_results.to_csv( fname)
-
-        # save opt params 
-        params_mat = np.zeros( [1, len(args.bnds) + 1])
-        params_mat[ 0, :-1] = param_opt
-        params_mat[ 0, -1]  = loss_opt
-        col = args.params_name + ['mle_loss']
-        params = pd.DataFrame( params_mat, columns=col)
-        
-        # create filename 
-        fname = f'{path}/results/params-{args.data_set}-{args.brain_name}-avg.csv'
-        params.to_csv( fname)  
-
-    elif args.fit_group == 'ind':
-
-        for sub_idx in train_data.keys():
-
-            # get subject data
-            sub_data = {'sub_idx': train_data[ sub_idx]}
-            ## Start fitting 
-            # parameter matrix and loss matrix 
-            fit_mat = np.zeros( [args.fit_num, len(args.bnds) + 1])
-            # param
-            seed = args.seed
-            results = [ pool.apply_async( model.fit, args=(sub_data, args.bnds, seed+2*i)
-                            ) for i in range(args.fit_num)]
-            for i, p in enumerate(results):
-                param, loss  = p.get()
-                fit_mat[ i, :-1] = param
-                fit_mat[ i,  -1]  = loss
-            end_time = datetime.datetime.now()
-            
-            # choose the best params and loss 
-            loss_vec = fit_mat[ :, -1]
-            opt_idx, loss_opt = np.nanargmin( loss_vec), np.nanmin( loss_vec)
-            param_opt = fit_mat[ opt_idx, :-1]
-
-            # save the fit results
-            col = args.params_name + ['loss']
-            fit_results = pd.DataFrame( fit_mat, columns=col)
-
-            # save fit results
-            fname = f'{path}/results/fit_results-{args.data_set}-{args.brain_name}-{sub_idx}.csv'
-            
-            # save fitted parameter 
-            try:
-                fit_results.to_csv( fname)
-            except:
-                os.mkdir( f'{path}/results')
-                fit_results.to_csv( fname)
-
-            # save opt params 
-            params_mat = np.zeros( [1, len(args.bnds) + 1])
-            params_mat[ 0, :-1] = param_opt
-            params_mat[ 0, -1]  = loss_opt
-            col = args.params_name + ['mle_loss']
-            params = pd.DataFrame( params_mat, columns=col)
-            
-            # create filename 
-            fname = f'{path}/results/params-{args.data_set}-{args.brain_name}-{sub_idx}.csv'
-            params.to_csv( fname)  
-
-    print( f'\nparallel computing spend {(end_time - start_time).total_seconds():.2f} seconds')
+    ## Loop to collect data 
+    for i, sub_idx in enumerate( data.keys()):
+        fname = f'{folder}/params-{args.data_set}-{sub_idx}.csv'
+        log = pd.read_csv( fname, index_col=0)
+        res_mat[ i, :] = log.iloc[ 0, :].values
+        if i == 0: col = log.columns
+    
+    ## Compute and save the mean and sem
+    res_smry[ 0, :] = np.mean( res_mat, axis=0)
+    res_smry[ 1, :] = np.std( res_mat, axis=0) / np.sqrt( n_sub)
+    fname = f'{path}/fits/params-{args.data_set}-{args.agent_name}-ind.csv'
+    pd.DataFrame( res_smry, columns=col).to_csv( fname)
 
 if __name__ == '__main__':
 
     ## STEP 0: LOAD DATA
     with open(f'{path}/data/{args.data_set}.pkl', 'rb') as handle:
-        train_data = pickle.load( handle)
+        data = pickle.load( handle)
 
     ## STEP 1: HYPERPARAMETER TUNING
     args = set_hyperparams(args)   
             
-    ## STEP 2: FIT TO EACH SUBJECT
-    mle_fit( train_data, args)
+    ## STEP 2: FIT
+    fit( data, args)
+    if args.group == 'ind': summary( data, args)
     
