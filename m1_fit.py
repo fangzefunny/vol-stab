@@ -10,7 +10,7 @@ from sklearn.model_selection import KFold
 
 from utils.model import subj
 from utils.params import set_hyperparams
-from utils.brains import *
+from utils.agents import *
 
 # find the current path
 path = os.path.dirname(os.path.abspath(__file__))
@@ -21,7 +21,7 @@ parser.add_argument('--fit_num', '-f', help='fit times', type = int, default=1)
 parser.add_argument('--data_set', '-d', help='which_data', type = str, default='rew_data_exp1')
 parser.add_argument('--loss_fn', '-l', help='fitting methods', type = str, default='mle')
 parser.add_argument('--group', '-g', help='fit to ind or fit to the whole group', type=str, default='avg')
-parser.add_argument('--brain_name', '-n', help='choose agent', default='dual_sys')
+parser.add_argument('--agent_name', '-n', help='choose agent', default='dual_sys')
 parser.add_argument('--cross_valid', '-k', help='do cross validatio or not', default=0)
 parser.add_argument('--n_cores', '-c', help='number of CPU cores used for parallel computing', 
                                             type=int, default=0)
@@ -37,10 +37,12 @@ if not os.path.exists(f'{path}/fits/{args.agent_name}'):
 
 def fit_parallel( data, pool, model, verbose, args):
 
-    # parameter matrix and loss matrix 
+    ## fix random seed 
     seed = args.seed
     n_params = len( args.bnds)
 
+    ## Start fitting
+    # fit cross validate 
     if args.cross_valid:
         kf = KFold( n_splits=5)
         params_lst = []
@@ -71,12 +73,14 @@ def fit_parallel( data, pool, model, verbose, args):
             bic += opt_bic  
             params_lst.append( opt_params)
 
-        # paras estimation
+        # estimate params given cross-validated samples
         param_lst = np.vstack( params_lst)
         param_mean = np.mean( param_lst, axis=0)
         param_std  = np.std(  param_lst, aixs=0)
         fit_mat = np.vstack( np.hstack( [ param_mean, nll, aic, bic]),
                              np.hstack( [ param_std,  nll, aic, bic]))
+    
+    # if not cross-validated
     else: 
         m_data = np.sum([ data[key].shape[0] 
                            for key in data.keys()])
@@ -88,14 +92,12 @@ def fit_parallel( data, pool, model, verbose, args):
         for p in results:
             params, loss = p.get()
             if loss < opt_nll:
-                opt_nll, opt_params = loss, params 
-                # aic = 2*k + 2*nll 
+                opt_nll, opt_params = loss, params  
                 aic = n_params*2 + 2*opt_nll
-                # bic = log(n)*k + 2*nll
                 bic = n_params*m_data + 2*opt_nll
         fit_mat = np.hstack( [ opt_params, opt_nll, aic, bic]).reshape([ 1, -1])
         
-    # save the fit results
+    ## Save the params + nll + aic + bic 
     col = args.params_name + [ 'nll', 'aic', 'bic']
     fit_res = pd.DataFrame( fit_mat, columns=col)
 
