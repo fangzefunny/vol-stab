@@ -105,107 +105,80 @@ class subj:
         
         return res.x, res.fun 
 
-    def pred( self, params, data=False):
-        '''Model prediction/simulation
-
-        Default:
-            use the train data and generate train target
+    def predict( self, params, data=False):
+        '''Calculate the predicted trajectories
+        using fixed parameters
         '''
-        # subject list 
-        subj_lst = data.keys()
-
-        # Create a dataframe to record simulation
-        # outcome
-        col_name = [ 'sub_id', 'group', 'action', 'state','act_acc', 
-                     'mag0', 'mag1', 'b_type', 'rew', 'human_act',
-                     'p_s','pi_0', 'pi_1', 'nll',
-                     'pi_comp', 'psi_comp', 'EQ']
-
-        # Loop over sample to collect data 
-        sim_data = pd.DataFrame( columns=col_name)
-        for subj in subj_lst:
-            datum = data[subj]
-            input_sample = datum.copy()
+        # each sample contains human respose within a block 
+        out_data = []
+        for i in data.keys():
+            input_sample = data[i].copy()
             input_sample['human_act'] = input_sample['action'].copy()
-            input_sample['action'] = np.nan 
-            sim_sample = self._pred_sample( input_sample, params)
-            sim_data = pd.concat( [ sim_data, sim_sample], axis=0, sort=True)
-        
-        return sim_data 
+            input_sample = input_sample.drop( columns=['action', 'reward'])
+            out_data.append( self.simulate( input_sample, params))
+        return pd.concat( out_data, ignore_index=True)
 
-    def _pred_sample( self, data, params):
+    def simulate( self, data, params):
 
+        ## Init the agent 
         state_dim = len( data.state.unique())
-        act_dim = 2
-        brain = self.brain( state_dim, act_dim, params) 
-        data['act_acc']    = np.nan
-        data['p_s']        = np.nan
-        data['pi_0']       = np.nan
-        data['pi_1']       = np.nan
-        data['nll']        = np.nan
-        data['rew']        = np.nan
-        data['pi_comp']    = np.nan
-        data['psi_comp']   = np.nan
-        data['EQ']         = np.nan
+        action_dim = 3
+        agent= self.agent( state_dim, action_dim, self.rng, params) 
+        
+        ## init a blank dataframe to store simulation
+        col = [ 'action', 'reward', 'prob', 
+                'pi_comp', 'psi_comp', 
+                'tradeoff', 'cog_load', 'cog_vio',
+                'pi_weights', 'psi_weights']
+        init_mat = np.zeros([ data.shape[0], len(col)]) + np.nan
+        pred_data = pd.DataFrame( init_mat, columns=col)  
 
         for t in range( data.shape[0]):
 
             # obtain st, at, and rt
-            mag0        = data.mag0[t]
-            mag1        = data.mag1[t]
-            obs         = [ mag0, mag1]
-            state       = int( data.state[t])
-            human_act   = int( data.human_act[t])
-            ctxt        = int( data.b_type[t])
-            correct_act = int( data.mag0[t] <= data.mag1[t])
-
-            # plan act
-            brain.plan_act( obs)
-            act         = brain.get_act()
-            rew         = obs[ act] * (state == act)
+            state = int(data['state'][t])
+            correct_act = int(data['correctAct'][t])
+            agent.plan_act( state)
+            action = agent.get_act()
+            reward = np.sum( action == correct_act)
             
-            # evaluate action: get p(a|xt)
-            pi_a1x = brain.eval_act( act)
-            ll     = brain.eval_act( human_act)
+            # evaluate action: get p(ai|S = si)
+            pi_a1x = agent.eval_act( correct_act)
 
             # record some vals
-            # general output 
-            data['action'][t]         = act
-            data['rew'][t]            = rew
-            data['act_acc'][t]        = pi_a1x
-            data['p_s'][t]            = brain.p_s[ 0, 0]
-            data['nll'][t]            = - np.log( ll + eps_)
-            data['human_act'][t]      = human_act
-            
-            # add some model specific output
-            try: 
-                data['pi_0'][t]       = brain.pi[ 0, 0]
-            except: 
-                pass 
-            try: 
-                data['pi_1'][t]       = brain.pi[ 1, 0]
-            except:
-                pass 
-            try:
-                data['pi_comp'][t]    = brain.pi_comp()
-            except:
-                pass 
-            try:
-                data['psi_comp'][t]   = brain.psi_comp()
-            except:
-                pass
-            try: 
-                data['EQ'][t]         = brain.EQ( obs)
-            except: 
-                pass 
+            pred_data['action'][t] = action
+            pred_data['reward'][t] = reward
+            pred_data['prob'][t]   = pi_a1x
 
-            # what to remember 
-            mem = { 'ctxt': ctxt, 'obs': obs, 'state': state,
-                  'action': act,  'rew': rew,     't': t }    
-            brain.memory.push( mem)
+            # record some important variable
+            if agent.pi_comp() is not None: pred_data['pi_comp'][t]  = agent.pi_comp()
+            if agent.psi_comp() is not None: pred_data['psi_comp'][t] = agent.psi_comp()
+            if agent.get_tradeoff() is not None: pred_data['tradeoff'][t] = agent.get_tradeoff()
+            if agent.get_cogload() is not None: pred_data['cog_load'][t] =  agent.get_cogload()
+            if agent.get_cogvio() is not None: pred_data['cog_vio'][t] =  agent.get_cogvio()
+
+            # record the policy
+            p_pi  = ''
+            for s in range(agent.pi.shape[0]): 
+                p = ','.join([str(np.round( i,4)) for i in agent.pi[ s, :]])
+                p_pi += '\\' * (s > 0) + p
+            pred_data['pi_weights'] = p_pi 
+
+            # the perception (if any)
+            if agent.psi is not None:
+                p_psi = ','.join([str(np.round(i,4)) for i in agent.psi[ state, :]])
+                pred_data['psi_weights'] = p_psi
+
+            # store 
+            mem = { 'stim': state, 'act': action, 'rew': reward, 't': t+1 } 
+            agent.memory.push( mem)   
             
             # model update
-            brain.update()            
+            agent.update()     
+
+        ## Merge the data into a large 
+        pred_data = pred_data.dropna( axis=1, how='all')
+        data = pd.concat( [ data, pred_data], axis=1)       
             
         return data
 
