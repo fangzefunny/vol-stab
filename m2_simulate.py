@@ -89,7 +89,7 @@ if __name__ == '__main__':
     args = set_hyperparams(args)  
 
     ## STEP 1: LOAD DATA
-    with open( f'{path}/data/{args.data_set}_subject.pkl', 'rb')as handle:
+    with open(f'{path}/data/{args.data_set}.pkl', 'rb') as handle:
         data = pickle.load( handle)
 
     ## STEP 2: SYNTHESIZE DATA

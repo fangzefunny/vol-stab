@@ -56,10 +56,12 @@ class subj:
             mag0  = data.mag0[t]
             mag1  = data.mag1[t]
             obs   = [ mag0, mag1]
-            # planning the action 
-            brain.plan_act( obs)
             ctxt  = int( data.b_type[t])
             state = int( data.state[t])
+            # planning the action
+            mem = { 'ctxt': ctxt, 'obs': obs }    
+            brain.memory.push( mem) 
+            brain.plan_act( obs)
             act   = int( data.action[t])
             rew   = obs[ act]
             # store 
