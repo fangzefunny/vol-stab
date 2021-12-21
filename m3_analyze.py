@@ -83,11 +83,11 @@ def smry_quant_criteria( pool, outcomes, models, args):
 #=============================
 
 ## Define a global Effect of interest  
-eoi = [ 'hc-pi_comp-subj', 'sz-pi_comp-subj',
-        'hc-E_rew-subj',   'sz-E_rew_subj',
-        'hc-pi_comp-set',  'sz-pi_comp-set',
-        'hc-bias-set',     'sz-bias-set',
-        'hc-bias-pi_comp', 'sz-bias-pi_comp',]
+eoi = [ 'hc-pi_comp-subj', ' sz-pi_comp-subj',
+        'hc-E_rew-subj',    'sz-E_rew_subj',
+        'hc-pi_comp-block', 'sz-pi_comp-block',
+        'hc-bias-block',    'sz-bias-block',
+        'hc-bias-pi_comp',  'sz-bias-pi_comp',]
 
 def get_analyses( data_set, model, sub_idx):
     fname = f'{path}/simulations/{model}/sim_{data_set}-idx{sub_idx}.csv'
