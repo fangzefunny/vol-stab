@@ -16,38 +16,31 @@ class subj:
     decision-making model. 
     '''
 
-    def __init__( self, brain, param_priors=None):
-        self.brain = brain 
+    def __init__( self, agent, param_priors=None, seed=1234):
+        self.agent = agent 
         self.param_priors = param_priors
+        self.rng   = np.random.RandomState(seed)
 
     def assign_data( self, data, act_dim):
         self.train_data = data
         self.state_dim  = 2#len( data[0].state.unique())
         self.act_dim    = act_dim  
 
-    def mle_loss( self, params):
-        '''Calculate total NLL of the data 
-           (over all samples)
+    def loss_fn(self, params, data):
+        '''Total likelihood
+        log p(D|θ) = -log ∏_i p(D_i|θ)
+                   = ∑_i -log p( D_i|θ )
+        or Maximum a posterior 
+        log p(θ|D) = ∑_i -log p( D_i|θ ) + -log p(θ)
         '''
-        tot_nll = 0.
-        for key in self.train_data.keys():            
-            data = self.train_data[key]
-            tot_nll += ( self._sample_like( data, params) \
-                       + self._prior_loss( params))        
-        return tot_nll
+        tot_loss = [ self._like( params, data[key])
+                   + self._prior( params) for key in data.keys()]        
+        return np.sum( tot_loss)
 
-    def _prior_loss( self, params):
-        '''Add the prior of the parameters
-        '''
-        tot_pr = 0.
-        if self.param_priors:
-            for prior, param in zip(self.param_priors, params):
-                tot_pr += -np.max([prior.logpdf( param), -max_])
-                
-        return tot_pr
-
-    def _sample_like( self, data, params):
+    def _like( self, params, data):
         '''Likelihood for one sample
+
+        -log p( D_i|θ )
 
         In RL, each sample is a block of experiment,
         Because it is independent across experiment.
@@ -55,7 +48,7 @@ class subj:
 
         # init 
         NLL = 0.
-        brain = self.brain( self.state_dim, self.act_dim, params)
+        brain = self.agent( 2, 2, self.rng, params)
 
         # loop to estimate the neg log likelihood
         for t in range( data.shape[0]):
@@ -80,158 +73,107 @@ class subj:
         
         return NLL
 
-    def fit( self, data, bnds, seed, verbose=False, init=[]):
-        '''Core fn used to do one fit
+    def _prior( self, params):
+        '''Add the prior of the parameters
         '''
+        tot_pr = 0.
+        if self.param_priors:
+            for prior, param in zip(self.param_priors, params):
+                tot_pr += -np.max([prior.logpdf( param), -max_])
+        return tot_pr
 
-        # prepare for the fit
-        np.random.seed( seed)
-        act_dim = 2
-        self.assign_data( data, act_dim)
-        n_params = len( bnds)
-
-        ## init the optimization params
-        # usually there is no init
-        if len( init) == 0:
-            # init parameters
-            param0 = list() 
-            for i in range( n_params):
-                i0 = bnds[i][0] + ( bnds[i][1] - bnds[i][0]
-                                  ) * np.random.rand()
-                param0.append( i0)
-        # sometimes we fix initalization
-        else: 
-            param0 = init 
-    
-        ## start fit
-        if verbose:
-            print( f'''
-                    Init with params:
-                        {param0} 
-                    ''')
-        res = minimize( self.mle_loss,          # optimize object    
-                        param0,                 # initialization
-                        bounds= bnds,           # param bound 
-                        options={'disp': verbose} # verbose loss
-                        )
-        if verbose:
-            print( f'''
-                    Fitted params: {res.x}
-                    MLE loss: {res.fun}
-                    ''')
-            
-        # select the optimal param set 
-        param_opt = res.x
-        loss_opt  = res.fun
+    def fit( self, data, pbnds, bnds=None, seed=2021, 
+                verbose=False, init=None,):
+        '''Fit the parameter using optimization 
+        '''
+        # Init params
+        if init:
+            # if there are assigned params
+            param0 = init
+        else:
+            # random init from the possible bounds 
+            rng = np.random.RandomState( seed)
+            param0 = [pbnd[0] + (pbnd[ 1] - pbnd[0]
+                     ) * rng.rand() for pbnd in pbnds]
+                     
+        ## Fit the params 
+        verbose and print( 'init with params: ', param0) 
+        res = minimize( self.loss_fn, param0, args=( data), 
+                        bounds=bnds, options={'disp': verbose})
+        verbose and print( f'''  Fitted params: {res.x}, 
+                    MLE loss: {res.fun}''')
         
-        return param_opt, loss_opt
+        return res.x, res.fun 
 
-    def pred( self, params, data=False):
-        '''Model prediction/simulation
-
-        Default:
-            use the train data and generate train target
+    def predict( self, params, data=False):
+        '''Calculate the predicted trajectories
+        using fixed parameters
         '''
-
-        # load the train data if no test data
-        if data == False:
-            data = self.train_data
-
-        # subject list 
-        subj_lst = data.keys()
-
-        # Create a dataframe to record simulation
-        # outcome
-        col_name = [ 'sub_id', 'group', 'action', 'state','act_acc', 
-                     'mag0', 'mag1', 'b_type', 'rew', 'human_act',
-                     'p_s','pi_0', 'pi_1', 'nll',
-                     'pi_comp', 'psi_comp', 'EQ']
-
-        # Loop over sample to collect data 
-        sim_data = pd.DataFrame( columns=col_name)
-        for subj in subj_lst:
-            datum = data[subj]
-            input_sample = datum.copy()
+        # each sample contains human respose within a block 
+        out_data = []
+        for i in data.keys():
+            input_sample = data[i].copy()
             input_sample['human_act'] = input_sample['action'].copy()
-            input_sample['action'] = np.nan 
-            sim_sample = self._pred_sample( input_sample, params)
-            sim_data = pd.concat( [ sim_data, sim_sample], axis=0, sort=True)
-        
-        return sim_data 
+            input_sample = input_sample.drop( columns=['action'])
+            out_data.append( self.simulate( input_sample, params))
+        return pd.concat( out_data, ignore_index=True)
 
-    def _pred_sample( self, data, params):
+    def simulate( self, data, params):
 
+        ## Init the agent 
         state_dim = len( data.state.unique())
-        act_dim = 2
-        brain = self.brain( state_dim, act_dim, params) 
-        data['act_acc']    = np.nan
-        data['p_s']        = np.nan
-        data['pi_0']       = np.nan
-        data['pi_1']       = np.nan
-        data['nll']        = np.nan
-        data['rew']        = np.nan
-        data['pi_comp']    = np.nan
-        data['psi_comp']   = np.nan
-        data['EQ']         = np.nan
+        action_dim = 2
+        agent= self.agent( state_dim, action_dim, self.rng, params) 
+        
+        ## init a blank dataframe to store simulation
+        col = [ 'action', 'act_acc', 'rew', 'p_s', 
+                'pi_0', 'pi_1', 'nll', 
+                'pi_comp', 'psi_comp', 'EQ']
+        init_mat = np.zeros([ data.shape[0], len(col)]) + np.nan
+        pred_data = pd.DataFrame( init_mat, columns=col)  
 
         for t in range( data.shape[0]):
 
             # obtain st, at, and rt
-            mag0        = data.mag0[t]
-            mag1        = data.mag1[t]
-            obs         = [ mag0, mag1]
-            state       = int( data.state[t])
-            human_act   = int( data.human_act[t])
-            ctxt        = int( data.b_type[t])
-            correct_act = int( data.mag0[t] <= data.mag1[t])
-
-            # plan act
-            brain.plan_act( obs)
-            act         = brain.get_act()
-            rew         = obs[ act] * (state == act)
+            mag0      = int(data['mag0'][t])
+            mag1      = int(data['mag1'][t])
+            obs       = [ mag0, mag1]
+            state     = int(data['state'][t])
+            human_act = int(data['human_act'][t])
+            ctxt      = int(data['b_type'][t])
+            agent.plan_act( obs)
+            act       = agent.get_act()
+            rew       = obs[act] * ( state == act)
             
-            # evaluate action: get p(a|xt)
-            pi_a1x = brain.eval_act( act)
-            ll     = brain.eval_act( human_act)
+            # evaluate action: get p(ai|S = si)
+            pi_a1x    = agent.eval_act( act)
+            like      = agent.eval_act( human_act)
 
             # record some vals
-            # general output 
-            data['action'][t]         = act
-            data['rew'][t]            = rew
-            data['act_acc'][t]        = pi_a1x
-            data['p_s'][t]            = brain.p_s[ 0, 0]
-            data['nll'][t]            = - np.log( ll + eps_)
-            data['human_act'][t]      = human_act
-            
-            # add some model specific output
-            try: 
-                data['pi_0'][t]       = brain.pi[ 0, 0]
-            except: 
-                pass 
-            try: 
-                data['pi_1'][t]       = brain.pi[ 1, 0]
-            except:
-                pass 
-            try:
-                data['pi_comp'][t]    = brain.pi_comp()
-            except:
-                pass 
-            try:
-                data['psi_comp'][t]   = brain.psi_comp()
-            except:
-                pass
-            try: 
-                data['EQ'][t]         = brain.EQ( obs)
-            except: 
-                pass 
+            pred_data['action'][t]    = act
+            pred_data['rew'][t]       = rew
+            pred_data['act_acc'][t]   = pi_a1x
+            pred_data['p_s'][t]       = agent.p_s[ 0, 0]
+            pred_data['nll'][t]       = -np.log( like + eps_)
 
-            # what to remember 
+            # record some important variable
+            if agent.pi is not None: 
+                pred_data['pi_0'][t] = agent.pi[ 0, 0]
+                pred_data['pi_1'][t] = agent.pi[ 1, 0]
+            if agent.pi_comp() is not None: pred_data['pi_comp'][t] = agent.pi_comp()
+            if agent.EQ(obs) is not None: pred_data['EQ'][t] = agent.EQ(obs)
+
+            # store 
             mem = { 'ctxt': ctxt, 'obs': obs, 'state': state,
-                  'action': act,  'rew': rew,     't': t }    
-            brain.memory.push( mem)
+                  'action': act,  'rew': rew,     't': t }   
+            agent.memory.push( mem)   
             
             # model update
-            brain.update()            
+            agent.update()     
+
+        ## Merge the data into a large 
+        pred_data = pred_data.dropna( axis=1, how='all')
+        data = pd.concat( [ data, pred_data], axis=1)       
             
         return data
 

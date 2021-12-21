@@ -3,7 +3,7 @@ from numpy.core.fromnumeric import argmax
 from scipy.special import softmax, logsumexp 
 
 # get the machine epsilon
-eps_ = 1e-10
+eps_ = 1e-12
 max_ = 1e+10
 
 # the replay buffer to store the memory 
@@ -31,12 +31,12 @@ class simpleBuffer:
 %    Base agent class    %
 %%%%%%%%%%%%%%%%%%%%%%%%%% 
 '''
-
 class Basebrain:
     
-    def __init__( self, state_dim, act_dim):
+    def __init__( self, state_dim, act_dim, rng):
         self.state_dim  = state_dim
         self.act_dim    = act_dim
+        self.rng        = rng 
         self.act_space  = range( self.act_dim)
         self._init_critic()
         self._init_actor()
@@ -60,6 +60,7 @@ class Basebrain:
         self.memory = simpleBuffer()
         
     def _init_critic( self):
+        self.q_s     = np.ones( [ 1, self.state_dim]) / self.state_dim
         self.q_table = np.ones( [self.state_dim, self.act_dim]
                           ) * 1 / self.act_dim
 
@@ -68,27 +69,41 @@ class Basebrain:
                           ) * 1 / self.act_dim
     
     def plan_act( self, obs):
+        '''Generate action given observation
+            p(a|xt)
+        '''
         return NotImplementedError
         
     def get_act( self):
-        return np.random.choice( self.act_space, p=self.p_a1x)
+        '''Sample from p(a|xt)
+        '''
+        return self.rng.choice( self.act_space, p=self.p_a1x)
         
     def eval_act( self, act):
+        '''get from p(at|xt)
+        '''
         return self.p_a1x[ act]
         
     def update( self):
+        '''Learning 
+        '''
         return NotImplementedError
+    
+    def pi_comp( self):
+        return None 
+
+    def EQ( self, obs):
+        return None 
 
 '''
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %     Models in the paper     %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 '''
-
 class model1( Basebrain):
 
-    def __init__( self, state_dim, act_dim, params=[]):
-        super().__init__( state_dim, act_dim)
+    def __init__( self, state_dim, act_dim, rng, params=[]):
+        super().__init__( state_dim, act_dim, rng)
         if len( params):
             self._load_free_params( params)
     
@@ -134,8 +149,8 @@ class model1( Basebrain):
 
 class model2( model1):
 
-    def __init__( self, state_dim, act_dim, params=[]):
-        super().__init__( state_dim, act_dim)
+    def __init__( self, state_dim, act_dim, rng, params=[]):
+        super().__init__( state_dim, act_dim, rng)
         if len( params):
             self._load_free_params( params)
 
@@ -158,11 +173,10 @@ class model2( model1):
         # choice probability
         self.p_a1x = np.array( [ pit, 1 - pit])
 
-
 class model7( model2):
 
-    def __init__( self, state_dim, act_dim, params=[]):
-        super().__init__( state_dim, act_dim)
+    def __init__( self, state_dim, act_dim, rng, params=[]):
+        super().__init__( state_dim, act_dim, rng)
         if len( params):
             self._load_free_params( params)
 
@@ -188,8 +202,8 @@ class model7( model2):
 
 class model8( model7):
 
-    def __init__( self, state_dim, act_dim, params=[]):
-        super().__init__( state_dim, act_dim)
+    def __init__( self, state_dim, act_dim, rng, params=[]):
+        super().__init__( state_dim, act_dim, rng)
         if len( params):
             self._load_free_params( params)
 
@@ -216,8 +230,8 @@ class model8( model7):
 
 class model11( model7):
 
-    def __init__( self, state_dim, act_dim, params=[]):
-        super().__init__( state_dim, act_dim)
+    def __init__( self, state_dim, act_dim, rng, params=[]):
+        super().__init__( state_dim, act_dim, rng)
         if len( params):
             self._load_free_params( params)
 
@@ -271,22 +285,81 @@ class model11( model7):
         # choice probability
         self.p_a1x = np.array( [ pit, 1 - pit])     
 
-class model11_m( model11):
+class model11_e( model11):
 
-    def __init__( self, state_dim, act_dim, params=[]):
-        super().__init__( state_dim, act_dim)
+    def __init__( self, state_dim, act_dim, rng, params=[]):
+        super().__init__( state_dim, act_dim, rng)
         if len( params):
             self._load_free_params( params)
 
     def _load_free_params(self, params):
-        self.alpha_s_stab = 0 # learning rate for the state in the stable task 
-        self.alpha_s_vol  = 0 # learning rate for the state in the volatile task 
-        self.lam          = params[0] # mixture of prob and mag
-        self.r            = params[1] # nonlinearity 
-        self.alpha_a      = params[2] # learning rate of choice kernel
-        self.beta         = params[3] # inverse temperature
-        self.beta_a       = params[4] # inverse temperature for choice kernel
+        self.alpha     = params[0] # learning rate for the state in the stable task 
+        self.nu        = params[1] # the decay of eligibility 
+        self.lam       = params[2] # mixture of prob and mag
+        self.r         = params[3] # nonlinearity 
+        self.alpha_a   = params[4] # learning rate of choice kernel
+        self.beta      = params[5] # inverse temperature
+        self.beta_a    = params[6] # inverse temperature for choice kernel
+        self.e_trace   = 0
 
+    def update( self):
+
+        ## Retrieve memory
+        state, action = self.memory.sample( 'state', 'action')
+
+        ## Update p_s
+        # calculate δs = It(s) - p_s
+        I_st = np.zeros( [ self.state_dim, 1])
+        I_st[ state, 0] = 1.
+        self.e_trace = self.nu * self.e_trace + I_st
+        self.e_trace /= self.e_trace.sum()
+        rpe_s = self.e_trace - self.p_s 
+        # p_s = p_s + α_s * δs
+        self.p_s += self.alpha * rpe_s 
+
+        ## Update p_a
+        # calculate δa = It(a) - p_a
+        I_at = np.zeros( [ self.act_dim, 1])
+        I_at[ action, 0] = 1.
+        rpe_a = I_at - self.p_a 
+        # p_a = p_a + α_a * δa
+        self.p_a += self.alpha_a * rpe_a 
+
+class model11_m( model11):
+
+    def __init__( self, state_dim, act_dim, rng, params=[]):
+        super().__init__( state_dim, act_dim, rng)
+        if len( params):
+            self._load_free_params( params)
+
+    def _load_free_params(self, params):
+        self.alpha     = params[0] # learning rate for the state in the stable task 
+        self.lam       = params[1] # mixture of prob and mag
+        self.r         = params[2] # nonlinearity 
+        self.alpha_a   = params[3] # learning rate of choice kernel
+        self.beta      = params[4] # inverse temperature
+        self.beta_a    = params[5] # inverse temperature for choice kernel
+
+    def update( self):
+
+        ## Retrieve memory
+        state, action = self.memory.sample( 'state', 'action')
+
+        ## Update p_s
+        # calculate δs = It(s) - p_s
+        I_st = np.zeros( [ self.state_dim, 1])
+        I_st[ state, 0] = 1.
+        rpe_s = I_st - self.p_s 
+        # p_s = p_s + α_s * δs
+        self.p_s += self.alpha * rpe_s 
+
+        ## Update p_a
+        # calculate δa = It(a) - p_a
+        I_at = np.zeros( [ self.act_dim, 1])
+        I_at[ action, 0] = 1.
+        rpe_a = I_at - self.p_a 
+        # p_a = p_a + α_a * δa
+        self.p_a += self.alpha_a * rpe_a 
 '''
 %%%%%%%%%%%%%%%%%%%%%%%%%%%
 %     Model Extension     %
@@ -294,8 +367,8 @@ class model11_m( model11):
 '''
 class RRmodel( model11):
 
-    def __init__( self, state_dim, act_dim, params=[]):
-        super().__init__( state_dim, act_dim)
+    def __init__( self, state_dim, act_dim, rng, params=[]):
+        super().__init__( state_dim, act_dim, rng)
         if len( params):
             self._load_free_params( params)
 
@@ -304,6 +377,38 @@ class RRmodel( model11):
         self.alpha_s_vol  = params[1] # learning rate for the state in the volatile task 
         self.alpha_a      = params[2] # learning rate of choice kernel
         self.beta         = params[3] # temperature
+        self.lamb         = .8
+        self.prev         = 0
+
+    
+    def update( self):
+
+        ## Retrieve memory
+        ctxt, state, action = self.memory.sample( 'ctxt', 'state', 'action')
+
+        # choose ctxt
+        if ctxt: 
+            alpha_s = self.alpha_s_stab
+        else:
+            alpha_s = self.alpha_s_vol
+
+        ## Update p_s
+        # calculate δs = 1 - v(st)
+        I_st = np.zeros( [ self.state_dim, 1])
+        I_st[ state, 0] = 1.
+        self.prev = self.lamb * self.prev + (1-self.lamb) * I_st
+        self.prev /= self.prev.sum() 
+        #rpe_s = I_st - self.p_s 
+        # p_s = p_s + α_s * δs
+        self.p_s += alpha_s * (self.prev - self.p_s)
+
+        ## Update p_a
+        # calculate δa = It(a) - p_a
+        I_at = np.zeros( [ self.act_dim, 1])
+        I_at[ action, 0] = 1.
+        rpe_a = I_at - self.p_a 
+        # p_a = p_a + α_a * δa
+        self.p_a += self.alpha_a * rpe_a 
     
     def plan_act( self, obs):
 
@@ -338,8 +443,8 @@ class RRmodel( model11):
 
 class RRmodel1( RRmodel):
 
-    def __init__( self, state_dim, act_dim, params=[]):
-        super().__init__( state_dim, act_dim)
+    def __init__( self, state_dim, act_dim, rng, params=[]):
+        super().__init__( state_dim, act_dim, rng)
         if len( params):
             self._load_free_params( params)
 
@@ -421,8 +526,8 @@ class RRmodel_f2( RRmodel_f1):
 
 class max_mag( Basebrain):
 
-    def __init__( self, state_dim, act_dim, params=[]):
-        super().__init__( state_dim, act_dim)
+    def __init__( self, state_dim, act_dim, rng, params=[]):
+        super().__init__( state_dim, act_dim, rng)
         if len( params):
             self._load_free_params( params)
     
@@ -450,6 +555,7 @@ class dual_sys( Basebrain):
         self.alpha_a      = params[3] # learning rate of choice kernel
         self.beta         = params[4] # inverse temperature
         self.gamma        = params[5]
+        
     def update( self):
 
         ## Retrieve memory
@@ -499,8 +605,6 @@ class dual_sys( Basebrain):
         # comebine
         self.p_a1x = self.weight * p1_a1x +\
                ( 1 - self.weight) * self.p_a.reshape([-1])
-
-    
 
 
     
