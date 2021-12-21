@@ -7,10 +7,12 @@ utils/__pycache__/
 results.zip
 __pycache__/
 
-
 # ignore folder 
 data/ 
 results/
 tables/
 figures/
 fits/
+
+# ignore some debug files
+debug.py 
