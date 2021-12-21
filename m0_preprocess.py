@@ -88,8 +88,6 @@ def preprocess( exp_folder, exp_id):
         if not os.path.isdir( file): 
             # get the subid 
             sub_idx, rew_pain = file.split('_')[3], file.split('_')[4]  
-            if sub_idx == 'cb25':
-                print(1)
             # get disease group
             try:
                 dis = pat_dict[sub_idx]
