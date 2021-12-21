@@ -14,8 +14,8 @@ for data_set in "${data_sets[@]}"; do
     for group in "${groups[@]}"; do 
         for model in "${models[@]}"; do 
             echo Data set=$data_set Group=$group Model=$model 
-                python m1_fit.py -d=$data_set -n=$model -s=42 -f=100 -c=100 -m='mle' -g=$group
-                python m2_simulate.py -n=$model
+                python m1_fit.py -d=$data_set -n=$model -s=42 -f=100 -c=100 -l='mle' -g=$group
+                #python m2_simulate.py -d=$data_set -n=$model
         done 
     done
 done

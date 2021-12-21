@@ -164,6 +164,6 @@ if __name__ == '__main__':
     preprocess( 'data_raw_exp1', 'exp1')    
 
     ## STEP1: CALCULATE RD CURVES   
-    get_rdcurves( 'rew_data_exp1') 
+    #get_rdcurves( 'rew_data_exp1') 
 
 
