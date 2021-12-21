@@ -8,15 +8,15 @@ import multiprocessing as mp
 
 from utils.model import subj
 from utils.params import set_hyperparams
-from utils.brains import *
+from utils.agents import *
 
 # find the current path
 path = os.path.dirname(os.path.abspath(__file__))
 
 ## pass the hyperparams
 parser = argparse.ArgumentParser(description='Test for argparse')
-parser.add_argument('--brain_name', '-n', help='choose agent', default='RRmodel')
-parser.add_argument('--data_set', '-d', help='choose data set', default='rew_data_exp1')
+parser.add_argument('--agent_name', '-n', help='choose agent', default='IM_Pi_1')
+parser.add_argument('--data_set', '-d', help='choose data set', default='collins_12')
 parser.add_argument('--n_sim', '-f', help='f simulations', type=int, default=20)
 parser.add_argument('--group', '-g', help='choose agent', default='ind')
 parser.add_argument('--seed', '-s', help='random seed', type=int, default=120)

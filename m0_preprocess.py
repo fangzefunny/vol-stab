@@ -49,7 +49,7 @@ def remake_cols_idx( data, sub_id, dis_group):
     # the raw data: left stim--1, right stim--0
     # I prefer:     left stim--0, right stim--1
     data['action'] = 1 - data['action']
-    data[data['action'].isna()] = int(np.random.choice([0,1]))
+    data.loc[data['action'].isna(), 'action']= int(np.random.choice([0,1]))
 
     ## Change the state index
     # the raw data: left stim--1, right stim--0
@@ -88,6 +88,8 @@ def preprocess( exp_folder, exp_id):
         if not os.path.isdir( file): 
             # get the subid 
             sub_idx, rew_pain = file.split('_')[3], file.split('_')[4]  
+            if sub_idx == 'cb25':
+                print(1)
             # get disease group
             try:
                 dis = pat_dict[sub_idx]

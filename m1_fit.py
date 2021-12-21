@@ -20,8 +20,8 @@ parser = argparse.ArgumentParser(description='Test for argparse')
 parser.add_argument('--fit_num', '-f', help='fit times', type = int, default=1)
 parser.add_argument('--data_set', '-d', help='which_data', type = str, default='rew_data_exp1')
 parser.add_argument('--loss_fn', '-l', help='fitting methods', type = str, default='mle')
-parser.add_argument('--group', '-g', help='fit to ind or fit to the whole group', type=str, default='avg')
-parser.add_argument('--agent_name', '-n', help='choose agent', default='dual_sys')
+parser.add_argument('--group', '-g', help='fit to ind or fit to the whole group', type=str, default='ind')
+parser.add_argument('--agent_name', '-n', help='choose agent', default='model11_e')
 parser.add_argument('--cross_valid', '-k', help='do cross validatio or not', default=0)
 parser.add_argument('--n_cores', '-c', help='number of CPU cores used for parallel computing', 
                                             type=int, default=0)
@@ -120,7 +120,7 @@ def fit( data, args):
     ## Fit params to each individual 
     if args.group == 'ind':
         for sub_idx in data.keys():
-            sub_data = data[ sub_idx]
+            sub_data = { f'{sub_idx}': data[ sub_idx]}
             print( f'Fitting subject {sub_idx}')
             fit_res = fit_parallel( sub_data, pool, model, False, args)
             pname = f'{path}/fits/{args.agent_name}/params-{args.data_set}-{sub_idx}.csv'

@@ -40,10 +40,14 @@ def set_hyperparams(args):
         args.params_name = [ 'α_s_stab', 'α_s_vol', 'λ', 'r', 'α_a', 'β', 'β_a']
     
     ## model extensions
-    elif args.agent_name == 'model11_m':
-        args.bnds = ( ( 0,  1), ( .1,  10.), 
+    elif args.agent_name == 'model11_e':
+        args.bnds = ( ( 0,  1), ( 0,  1), ( 0,  1), (.1,  10.), 
                       ( 0, 1), ( 0, 20.), ( 0, 20.))
-        args.params_name = [ 'λ', 'r', 'α_a', 'β', 'β_a']
+        args.params_name = [ 'α','ν', 'λ', 'r', 'α_a', 'β', 'β_a']
+    elif args.agent_name == 'model11_m':
+        args.bnds = ( ( 0, 1), ( 0, 1),  (.1,  10.), 
+                      ( 0, 1), ( 0, 20.), ( 0, 20.))
+        args.params_name = [ 'α', 'λ', 'r', 'α_a', 'β', 'β_a']
     elif args.agent_name == 'max_mag':
         args.bnds = [( 0,  20.)]
         args.params_name = [ 'β',]

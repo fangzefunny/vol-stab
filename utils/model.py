@@ -16,9 +16,10 @@ class subj:
     decision-making model. 
     '''
 
-    def __init__( self, brain, param_priors=None):
-        self.brain = brain 
+    def __init__( self, agent, param_priors=None, seed=1234):
+        self.agent = agent 
         self.param_priors = param_priors
+        self.rng   = np.random.RandomState(seed)
 
     def assign_data( self, data, act_dim):
         self.train_data = data
@@ -32,9 +33,8 @@ class subj:
         or Maximum a posterior 
         log p(θ|D) = ∑_i -log p( D_i|θ ) + -log p(θ)
         '''
-        tot_loss = [ self._like( params, data[key] \
-                   + self._prior( params)) 
-                           for key in data.keys()]        
+        tot_loss = [ self._like( params, data[key])
+                   + self._prior( params) for key in data.keys()]        
         return np.sum( tot_loss)
 
     def _like( self, params, data):
@@ -48,7 +48,7 @@ class subj:
 
         # init 
         NLL = 0.
-        brain = self.brain( self.state_dim, self.act_dim, params)
+        brain = self.agent( 2, 2, self.rng, params)
 
         # loop to estimate the neg log likelihood
         for t in range( data.shape[0]):
@@ -83,7 +83,7 @@ class subj:
         return tot_pr
 
     def fit( self, data, pbnds, bnds=None, seed=2021, 
-                init=None, verbose=False,):
+                verbose=False, init=None,):
         '''Fit the parameter using optimization 
         '''
         # Init params
@@ -114,7 +114,7 @@ class subj:
         for i in data.keys():
             input_sample = data[i].copy()
             input_sample['human_act'] = input_sample['action'].copy()
-            input_sample = input_sample.drop( columns=['action', 'reward'])
+            input_sample = input_sample.drop( columns=['action'])
             out_data.append( self.simulate( input_sample, params))
         return pd.concat( out_data, ignore_index=True)
 
@@ -122,55 +122,50 @@ class subj:
 
         ## Init the agent 
         state_dim = len( data.state.unique())
-        action_dim = 3
+        action_dim = 2
         agent= self.agent( state_dim, action_dim, self.rng, params) 
         
         ## init a blank dataframe to store simulation
-        col = [ 'action', 'reward', 'prob', 
-                'pi_comp', 'psi_comp', 
-                'tradeoff', 'cog_load', 'cog_vio',
-                'pi_weights', 'psi_weights']
+        col = [ 'action', 'act_acc', 'rew', 'p_s', 
+                'pi_0', 'pi_1', 'nll', 
+                'pi_comp', 'psi_comp', 'EQ']
         init_mat = np.zeros([ data.shape[0], len(col)]) + np.nan
         pred_data = pd.DataFrame( init_mat, columns=col)  
 
         for t in range( data.shape[0]):
 
             # obtain st, at, and rt
-            state = int(data['state'][t])
-            correct_act = int(data['correctAct'][t])
-            agent.plan_act( state)
-            action = agent.get_act()
-            reward = np.sum( action == correct_act)
+            mag0      = int(data['mag0'][t])
+            mag1      = int(data['mag1'][t])
+            obs       = [ mag0, mag1]
+            state     = int(data['state'][t])
+            human_act = int(data['human_act'][t])
+            ctxt      = int(data['b_type'][t])
+            agent.plan_act( obs)
+            act       = agent.get_act()
+            rew       = obs[act] * ( state == act)
             
             # evaluate action: get p(ai|S = si)
-            pi_a1x = agent.eval_act( correct_act)
+            pi_a1x    = agent.eval_act( act)
+            like      = agent.eval_act( human_act)
 
             # record some vals
-            pred_data['action'][t] = action
-            pred_data['reward'][t] = reward
-            pred_data['prob'][t]   = pi_a1x
+            pred_data['action'][t]    = act
+            pred_data['rew'][t]       = rew
+            pred_data['act_acc'][t]   = pi_a1x
+            pred_data['p_s'][t]       = agent.p_s[ 0, 0]
+            pred_data['nll'][t]       = -np.log( like + eps_)
 
             # record some important variable
-            if agent.pi_comp() is not None: pred_data['pi_comp'][t]  = agent.pi_comp()
-            if agent.psi_comp() is not None: pred_data['psi_comp'][t] = agent.psi_comp()
-            if agent.get_tradeoff() is not None: pred_data['tradeoff'][t] = agent.get_tradeoff()
-            if agent.get_cogload() is not None: pred_data['cog_load'][t] =  agent.get_cogload()
-            if agent.get_cogvio() is not None: pred_data['cog_vio'][t] =  agent.get_cogvio()
-
-            # record the policy
-            p_pi  = ''
-            for s in range(agent.pi.shape[0]): 
-                p = ','.join([str(np.round( i,4)) for i in agent.pi[ s, :]])
-                p_pi += '\\' * (s > 0) + p
-            pred_data['pi_weights'] = p_pi 
-
-            # the perception (if any)
-            if agent.psi is not None:
-                p_psi = ','.join([str(np.round(i,4)) for i in agent.psi[ state, :]])
-                pred_data['psi_weights'] = p_psi
+            if agent.pi is not None: 
+                pred_data['pi_0'][t] = agent.pi[ 0, 0]
+                pred_data['pi_1'][t] = agent.pi[ 1, 0]
+            if agent.pi_comp() is not None: pred_data['pi_comp'][t] = agent.pi_comp()
+            if agent.EQ(obs) is not None: pred_data['EQ'][t] = agent.EQ(obs)
 
             # store 
-            mem = { 'stim': state, 'act': action, 'rew': reward, 't': t+1 } 
+            mem = { 'ctxt': ctxt, 'obs': obs, 'state': state,
+                  'action': act,  'rew': rew,     't': t }   
             agent.memory.push( mem)   
             
             # model update
