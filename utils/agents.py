@@ -283,7 +283,11 @@ class model11( model7):
         pit = 1 / ( 1 + np.exp( - ( self.beta * vt + 
                   self.beta_a * ( self.p_a[ 0, 0] - self.p_a[ 1, 0])))) 
         # choice probability
-        self.p_a1x = np.array( [ pit, 1 - pit])     
+        self.p_a1x = np.array( [ pit, 1 - pit]) 
+
+#========================================
+#     Eligibility trace for state       
+#========================================   
 
 class model11_e( model11):
 
@@ -360,11 +364,11 @@ class model11_m( model11):
         rpe_a = I_at - self.p_a 
         # p_a = p_a + α_a * δa
         self.p_a += self.alpha_a * rpe_a 
-'''
-%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%     Model Extension     %
-%%%%%%%%%%%%%%%%%%%%%%%%%%% 
-'''
+
+#==========================================
+#     Resource rational model for policy      
+#===========================================  
+
 class RRmodel( model11):
 
     def __init__( self, state_dim, act_dim, rng, params=[]):
@@ -373,34 +377,26 @@ class RRmodel( model11):
             self._load_free_params( params)
 
     def _load_free_params( self, params):
-        self.alpha_s_stab = params[0] # learning rate for the state in the stable task 
-        self.alpha_s_vol  = params[1] # learning rate for the state in the volatile task 
-        self.alpha_a      = params[2] # learning rate of choice kernel
-        self.beta         = params[3] # temperature
-        self.lamb         = .8
-        self.prev         = 0
+        self.alpha_s  = params[0] # learning rate for the state in the stable task 
+        self.alpha_a  = params[1] # learning rate of choice kernel
+        self.beta     = params[2] # temperature
+        self.nu       = 0
+        self.e_trace  = 0 
 
-    
     def update( self):
 
         ## Retrieve memory
-        ctxt, state, action = self.memory.sample( 'ctxt', 'state', 'action')
-
-        # choose ctxt
-        if ctxt: 
-            alpha_s = self.alpha_s_stab
-        else:
-            alpha_s = self.alpha_s_vol
+        state, action = self.memory.sample( 'state', 'action')
 
         ## Update p_s
         # calculate δs = 1 - v(st)
         I_st = np.zeros( [ self.state_dim, 1])
         I_st[ state, 0] = 1.
-        self.prev = self.lamb * self.prev + (1-self.lamb) * I_st
-        self.prev /= self.prev.sum() 
-        #rpe_s = I_st - self.p_s 
+        self.e_trace = self.nu * self.e_trace + I_st
+        self.e_trace /= self.e_trace.sum()
+        rpe_s = self.e_trace - self.p_s 
         # p_s = p_s + α_s * δs
-        self.p_s += alpha_s * (self.prev - self.p_s)
+        self.p_s += self.alpha_s * rpe_s 
 
         ## Update p_a
         # calculate δa = It(a) - p_a
@@ -441,7 +437,7 @@ class RRmodel( model11):
         # EQ = ∑_s ∑π(a|s) Q(s,a)
         return np.sum( self.p_s * self.pi * Q)
 
-class RRmodel1( RRmodel):
+class RRmodel_e( RRmodel):
 
     def __init__( self, state_dim, act_dim, rng, params=[]):
         super().__init__( state_dim, act_dim, rng)
@@ -449,138 +445,43 @@ class RRmodel1( RRmodel):
             self._load_free_params( params)
 
     def _load_free_params( self, params):
-        self.alpha_s_stab = params[0] # learning rate of state in the stable block
-        self.alpha_s_vol  = params[1] # learning rate of state in the volatile block 
-        self.alpha_pi     = params[2] # learning rate of the policy 
-        self.alpha_a      = params[3] # learning rate of choice kernel
-        self.beta         = params[4] # temperature
-    
-    def plan_act( self, obs):
-        # get Q
-        mag0, mag1 = obs 
-        Q = np.array([[ mag0,    0],
-                      [    0, mag1]])
-        # get π ∝ exp[ βQ(s,a) + log p_a(a)]
-        log_pi = self.beta * Q + np.log( self.p_a.T + eps_) #sa
-        pi_target = np.exp( log_pi - logsumexp( 
-                            log_pi, keepdims=True, axis=1)) #sa
-        self.pi += self.alpha_pi * (pi_target - self.pi)
+        self.alpha_s  = params[0] # learning rate for the state in the stable task 
+        self.alpha_a  = params[1] # learning rate of choice kernel
+        self.beta     = params[2] # temperature
+        self.nu       = params[3]
+        self.e_trace  = 0
 
-        self.p_a1x = (self.p_s.T @ self.pi).reshape([-1]) 
-
-class RRmodel_f1( RRmodel):
-
-    def __init__( self, state_dim, act_dim, params=[]):
-        super().__init__( state_dim, act_dim)
-        if len( params):
-            self._load_free_params( params)
-
-    def _load_free_params( self, params):
-        self.alpha_s_stab = params[0] # learning rate of state in the stable block
-        self.alpha_s_vol  = params[1] # learning rate of state in the volatile block 
-        self.alpha_a      = params[2] # learning rate of choice kernel
-        self.beta         = params[3] # temperature
-        self.gamma        = params[4] # risk parameter 
-    
-    def plan_act( self, obs):
-
-        # approximate epistemic uncertainty
-        pt = self.p_s[ 0, 0] 
-        pt = np.min( [ np.max( [ abs( pt - .5) ** self.gamma * np.sign( pt - .5) 
-                       + .5, 0 ] ), 1])
-        p_s = np.array( [[ pt, 1 -pt]]).T #s1
-        # get Q
-        mag0, mag1 = obs 
-        Q = np.array([[ mag0,    0],
-                      [    0, mag1]])
-        # get π ∝ exp[ βQ(s,a) + log p_a(a)]
-        log_pi = self.beta * Q + np.log( self.p_a.T + eps_) #sa
-        self.pi = np.exp( log_pi - logsumexp( 
-                          log_pi, keepdims=True, axis=1)) #sa
-        # action probability given observation
-        self.p_a1x = ( p_s.T @ self.pi).reshape([-1])
-
-class RRmodel_f2( RRmodel_f1):
-
-    def __init__( self, state_dim, act_dim, params=[]):
-        super().__init__( state_dim, act_dim)
-        if len( params):
-            self._load_free_params( params)
-    
-    def plan_act( self, obs):
-
-        # approximate epistemic uncertainty
-        pt = self.p_s[ 0, 0] 
-        pt = np.exp( -(-np.log( pt) )** self.gamma)
-        p_s = np.array( [[ pt, 1 -pt]]).T #s1
-        # get Q
-        mag0, mag1 = obs 
-        Q = np.array([[ mag0,    0],
-                      [    0, mag1]])
-        # get π ∝ exp[ βQ(s,a) + log p_a(a)]
-        log_pi = self.beta * Q + np.log( self.p_a.T + eps_) #sa
-        self.pi = np.exp( log_pi - logsumexp( 
-                          log_pi, keepdims=True, axis=1)) #sa
-        # action probability given observation
-        self.p_a1x = ( p_s.T @ self.pi).reshape([-1])
-
-class max_mag( Basebrain):
+class RRmodel_ctxt( RRmodel):
 
     def __init__( self, state_dim, act_dim, rng, params=[]):
         super().__init__( state_dim, act_dim, rng)
         if len( params):
             self._load_free_params( params)
-    
+
     def _load_free_params( self, params):
-        self.beta = params[0] 
-
-    def plan_act(self, obs):
-        mag0, mag1 = obs 
-        mag_diff = (mag0 - mag1)
-        v = self.beta * mag_diff
-        pi = 1 / ( 1 + np.exp( -v)) #sa
-        self.p_a1x = [ pi, 1 - pi]
-
-class dual_sys( Basebrain):
-
-    def __init__( self, state_dim, act_dim, params=[]):
-        super().__init__( state_dim, act_dim)
-        if len( params):
-            self._load_free_params( params)
-
-    def _load_free_params(self, params):
         self.alpha_s_stab = params[0] # learning rate for the state in the stable task 
         self.alpha_s_vol  = params[1] # learning rate for the state in the volatile task 
-        self.weight       = params[2] # mixture of pi and perservation 
-        self.alpha_a      = params[3] # learning rate of choice kernel
-        self.beta         = params[4] # inverse temperature
-        self.gamma        = params[5]
-        
+        self.alpha_a_stab = params[2] # learning rate of choice kernel stab
+        self.alpha_a_vol  = params[3] # learning rate of choice kernel volatile
+        self.beta_stab    = params[4] # temperature stable
+        self.beta_vol     = params[5] # temperature volatile 
+
     def update( self):
 
         ## Retrieve memory
         ctxt, state, action = self.memory.sample( 'ctxt', 'state', 'action')
 
         # choose ctxt
-        if ctxt: 
-            alpha_s = self.alpha_s_stab
-        else:
-            alpha_s = self.alpha_s_vol
+        alpha_s = self.alpha_s_stab if ctxt else self.alpha_s_vol
+        alpha_a = self.alpha_a_stab if ctxt else self.alpha_a_vol
 
         ## Update p_s
-        # calculate δs = It(s) - p_s
+        # calculate δs = 1 - v(st)
         I_st = np.zeros( [ self.state_dim, 1])
         I_st[ state, 0] = 1.
         rpe_s = I_st - self.p_s 
         # p_s = p_s + α_s * δs
-        self.p_s += alpha_s * rpe_s 
-
-        ## Update weight
-        k = self.p_a[ 0, 0]
-        p1_o1a = self.p1t ** (1-state) * (1-self.p1t) ** state
-        p2_o1a = k ** (1-state) * (1-k) ** state
-        self.weight = (self.weight * p1_o1a) /\
-                      (self.weight * p1_o1a + (1-self.weight) * p2_o1a)
+        self.p_s += alpha_s * rpe_s
 
         ## Update p_a
         # calculate δa = It(a) - p_a
@@ -588,28 +489,22 @@ class dual_sys( Basebrain):
         I_at[ action, 0] = 1.
         rpe_a = I_at - self.p_a 
         # p_a = p_a + α_a * δa
-        self.p_a += self.alpha_a * rpe_a 
-
-    def plan_act(self, obs):
-        
-        # unpack observation
-        mag0, mag1 = obs
-        pt = self.p_s[ 0, 0] 
-        # mixture of probability and magnitude 
-        pt = np.min( [ np.max( [ abs( pt - .5) ** self.gamma * np.sign( pt - .5) 
-                       + .5, 0 ] ), 1])
-        v1t = pt * mag0 - ( 1 - pt) * mag1
-        # softmax action selection 
-        self.p1t = 1 / ( 1 + np.exp( - ( self.beta * v1t)))
-        p1_a1x = np.array( [ self.p1t, 1 - self.p1t])
-        # comebine
-        self.p_a1x = self.weight * p1_a1x +\
-               ( 1 - self.weight) * self.p_a.reshape([-1])
-
-
+        self.p_a += alpha_a * rpe_a 
     
-
-        
+    def plan_act( self, obs):
+        # get context 
+        ctxt = self.memory.sample('ctxt')
+        beta = self.beta_stab if ctxt else self.beta_vol
+        # get Q
+        mag0, mag1 = obs 
+        Q = np.array([[ mag0,    0],
+                      [    0, mag1]])
+        # get π ∝ exp[ βQ(s,a) + log p_a(a)]
+        log_pi = beta * Q + np.log( self.p_a.T + eps_) #sa
+        self.pi = np.exp( log_pi - logsumexp( 
+                          log_pi, keepdims=True, axis=1)) #sa
+        # action probability given observation
+        self.p_a1x = ( self.p_s.T @ self.pi).reshape([-1]) 
 
 
 

@@ -48,24 +48,15 @@ def set_hyperparams(args):
         args.bnds = ( ( 0, 1), ( 0, 1),  (.1,  10.), 
                       ( 0, 1), ( 0, 20.), ( 0, 20.))
         args.params_name = [ 'α', 'λ', 'r', 'α_a', 'β', 'β_a']
-    elif args.agent_name == 'max_mag':
-        args.bnds = [( 0,  20.)]
-        args.params_name = [ 'β',]
     elif args.agent_name == 'RRmodel':
-        args.bnds = ( ( 0, 1), ( 0, 1), ( 0,  1), ( .00, 20.))
-        args.params_name = [ 'α_s_stab', 'α_s_vol', 'α_a', 'β']
-        if args.fit_mode == 'map':
-            args.param_priors = [ beta(3.5, 3), beta(3, 3.5), uniform(0, 20)]
-    elif args.agent_name == 'RRmodel_f1':
-        args.bnds = ( ( 0, 1), ( 0, 1), ( 0,  1), ( .00, 20.), ( .00, 10.))
-        args.params_name = [ 'α_s_stab', 'α_s_vol', 'α_a', 'β', 'γ']
-    elif args.agent_name == 'RRmodel_f2':
-        args.bnds = ( ( 0, 1), ( 0, 1), ( 0,  1), ( .00, 20.), ( .00, 1))
-        args.params_name = [ 'α_s_stab', 'α_s_vol', 'α_a', 'β', 'γ']
-    elif args.agent_name == 'dual_sys':
-        args.bnds = ( ( 0, 1), ( 0, 1), ( 0,  1), ( .00, 1), 
-                      ( .00, 20.), ( .00, 10.))
-        args.params_name = [ 'α_s_stab', 'α_s_vol', 'w', 'α_a', 'β', 'γ']
+        args.bnds = ( ( 0, 1), ( 0, 1), (0, 20))
+        args.params_name = [ 'α_s_stab', 'α_a', 'β']
+    elif args.agent_name == 'RRmodel_e':
+        args.bnds = ( ( 0, 1), ( 0, 1), (0, 20), ( 0,  1))
+        args.params_name = [ 'α_s_stab', 'α_s_vol', 'β', 'ν']
+    elif args.agent_name == 'RRmodel_ctxt':
+        args.bnds = ( ( 0, 1), ( 0, 1), ( 0, 1), ( 0, 1), (0, 20), (0, 20))
+        args.params_name = [ 'α_s_stab', 'α_s_vol', 'α_a_stab', 'α_a_vol', 'β_stab', 'β_vol']
 
 
     # if there is input initialization, we do not need to
