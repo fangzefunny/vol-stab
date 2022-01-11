@@ -20,45 +20,48 @@ def set_hyperparams(args):
     ## elife models
     args.agent = eval( args.agent_name)
     args.param_priors = None
-    if args.agent_name == 'model1':
-        args.bnds = ( ( 0, 1), ( 0, 1), ( .1, 10.), ( 0, 20))
-        args.params_name = [ 'α_s_stab', 'α_s_vol', 'γ', 'β']
-    elif args.agent_name == 'model2':
-        args.bnds = ( ( 0, 1), ( 0, 1), ( 0, 1), ( 0, 20))
-        args.params_name = [ 'α_s_stab', 'α_s_vol', 'λ', 'β']
-    elif args.agent_name == 'model7':
-        args.bnds = ( ( 0, 1), ( 0, 1), ( 0, 1), ( .1, 10.), 
-                      ( 0, 20))
-        args.params_name = [ 'α_s_stab', 'α_s_vol', 'λ', 'r', 'β']
-    elif args.agent_name == 'model8':
-        args.bnds = ( ( 0, 1),  ( 0, 1), ( 0, 1), ( .1, 10.), 
-                      ( 0, 20.), ( 0, 1))
-        args.params_name = [ 'α_s_stab', 'α_s_vol', 'λ', 'r', 'β', 'ε']
-    elif args.agent_name == 'model11':
-        args.bnds = ( ( 0, 1), ( 0,  1), ( 0,  1), ( .1,  10.), 
-                      ( 0, 1), ( 0, 20.), ( 0, 20.))
-        args.params_name = [ 'α_s_stab', 'α_s_vol', 'λ', 'r', 'α_a', 'β', 'β_a']
+    # basic 
+    if args.agent_name == 'NM':
+        args.bnds        = ( ( 0, 1), 
+                             ( 0, 1), 
+                             ( 0, 5),)
+        args.params_name = [ 'α_s_stab', 
+                             'α_s_vol', 
+                             'k',]
+    elif args.agent_name == 'TM':
+        args.bnds        = ( ( 0, 1), ( 1/20, 1000),  
+                             ( 0, 1), ( 1/20, 1000),)
+        args.params_name = [ 'α_s_stab', 'τ_stab', 
+                             'α_s_vol',  'τ_vol', ]
+    elif args.agent_name == 'SM':
+        args.bnds        = ( ( 0, 1), ( 0, 1),  
+                             ( 0, 1), ( 0, 1),
+                             ( 0, 5), ( 1/20, 1000),)
+        args.params_name = [ 'α_s_stab', 'α_τ_stab', 
+                             'α_s_vol',  'α_τ_vol', 
+                             'k',        'τ0',]
     
-    ## model extensions
-    elif args.agent_name == 'model11_e':
-        args.bnds = ( ( 0,  1), ( 0,  1), ( 0,  1), (.1,  10.), 
-                      ( 0, 1), ( 0, 20.), ( 0, 20.))
-        args.params_name = [ 'α','ν', 'λ', 'r', 'α_a', 'β', 'β_a']
-    elif args.agent_name == 'model11_m':
-        args.bnds = ( ( 0, 1), ( 0, 1),  (.1,  10.), 
-                      ( 0, 1), ( 0, 20.), ( 0, 20.))
-        args.params_name = [ 'α', 'λ', 'r', 'α_a', 'β', 'β_a']
-    elif args.agent_name == 'RRmodel':
-        args.bnds = ( ( 0, 1), ( 0, 1), (0, 20))
-        args.params_name = [ 'α_s_stab', 'α_a', 'β']
-    elif args.agent_name == 'RRmodel_e':
-        args.bnds = ( ( 0, 1), ( 0, 1), (0, 20), ( 0,  1))
-        args.params_name = [ 'α_s_stab', 'α_s_vol', 'β', 'ν']
-    elif args.agent_name == 'RRmodel_ctxt':
-        args.bnds = ( ( 0, 1), ( 0, 1), ( 0, 1), ( 0, 1), (0, 20), (0, 20))
-        args.params_name = [ 'α_s_stab', 'α_s_vol', 'α_a_stab', 'α_a_vol', 'β_stab', 'β_vol']
-
-
+    ## With amortized inference
+    elif args.agent_name == 'NMa':
+        args.bnds        = ( ( 0, 1), ( 0, 1), 
+                             ( 0, 1), ( 0, 1), 
+                             ( 0, 5),)
+        args.params_name = [ 'α_s_stab', 'α_a_stab',
+                             'α_s_vol',  'α_a_vol',
+                             'k',]
+    elif args.agent_name == 'TMa':
+        args.bnds        = ( ( 0, 1), ( 0, 1), ( 1/20, 1000), 
+                             ( 0, 1), ( 0, 1), ( 1/20, 1000),)
+        args.params_name = [ 'α_s_stab', 'α_a_stab', 'β_stab', 
+                             'α_s_vol',  'α_a_vol',  'β_vol' ,]
+    elif args.agent_name == 'SMa':
+        args.bnds        = ( ( 0, 1), ( 0, 1), ( 0, 1),  
+                             ( 0, 1), ( 0, 1), ( 0, 1), 
+                             ( 0, 5), ( 1/20, 1000))
+        args.params_name = [ 'α_s_stab', 'α_a_stab', 'α_τ_stab', 
+                             'α_s_vol',  'α_a_vol',  'α_τ_vol', 
+                             'k', 'τ0']
+                             
     # if there is input initialization, we do not need to
     # random the intialization 
     if len(args.init) > 0:

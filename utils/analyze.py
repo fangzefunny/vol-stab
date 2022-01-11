@@ -163,3 +163,8 @@ def Rate_Reward( data, prior=.1, wrong_prior=True):
     results[  'Val_data'] = summary_Val_data
 
     return results
+
+#================================
+#     Rate-Distortion analyses
+#================================
+

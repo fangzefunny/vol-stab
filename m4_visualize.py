@@ -3,14 +3,23 @@ import pickle
 import numpy as np
 import pandas as pd  
 import matplotlib.pyplot as plt 
-import statsmodels.stats.weightstats as st
+import seaborn as sns 
 
-from utils.model import subj
-from utils.brains import * 
+from scipy.stats import ttest_ind
 
 # find the current path
 path = os.path.dirname(os.path.abspath(__file__))
-dpi  = 500
+# define some color 
+Blue    = .85 * np.array([   9, 132, 227]) / 255
+Green   = .85 * np.array([   0, 184, 148]) / 255
+Red     = .85 * np.array([ 255, 118, 117]) / 255
+Yellow  = .85 * np.array([ 253, 203, 110]) / 255
+Purple  = .85 * np.array([ 108,  92, 231]) / 255
+colors    = [ Blue, Red, Green, Yellow, Purple]
+sns.set_style("whitegrid", {'axes.grid' : False})
+
+# image dpi
+dpi = 250
 
 
 def split_data( data_set, model):
@@ -383,17 +392,52 @@ def loss_land( data_set):
     plt.savefig( f'{path}/figures/model_11_land-{data_set}.png', dpi=200)
 
 
- 
+def show_RR_params( data_set, outcomes):
+
+    data = outcomes['RRmodel_ctxt']
+    params = [ 'alpha_s', 'alpha_a', 'beta']
+    groups = [ 'pa', 'hc']
+    params_name = [ r'$\alpha_s$', r'$\alpha_a$', r'$\beta$']
+    fig, axs = plt.subplots( 2, 3, figsize=( 9, 2*3))
+    
+    al = .3
+    for i, param in enumerate(params):
+        ax = axs[0, i]
+        d_lst = [ data[f'{param}-hc-block'][0], data[f'{param}-hc-block'][1],
+                  data[f'{param}-pa-block'][0], data[f'{param}-pa-block'][1]]
+        colors = [ Blue, Blue, Red, Red]
+        for j, d in enumerate(d_lst):
+            ax.scatter( j*np.ones_like(d), d, s=20, color=colors[j], alpha=al)
+            ax.errorbar( [j-.1,j,j+.1], [np.mean(d)]*3, 
+                        [0,np.std(d)/np.sqrt(len(d)),0], color='k') 
+        ax.set_xticks([0, 1, 2, 3])
+        ax.set_xticklabels( ['HC-Stab', 'HC-Vol', 'PA-Stab', 'PA-Vol'])
+        ax.set_ylabel( params_name[i])
+
+        ax = axs[1, i]
+        mat = 0*np.eye(len(d_lst))
+        for m, d1 in enumerate(d_lst):
+            for k, d2 in enumerate(d_lst):
+                mat[ m, k] = (ttest_ind( d1, d2)[1] <= .05)
+        ax.imshow( mat, cmap='Reds')
+
+    fig.tight_layout()
+    plt.savefig( f'{path}/figures/param_smary.png', dpi=500)   
+
 if __name__ == '__main__':
 
-    ## STEP0: CHOOSE DATA SET AND MODEL 
-    data_sets = { 'pain_data_exp1', 'rew_data_exp1'}
+    ## STEP0: CHOOSE DATA SET AND MODEL, LOAD ANALYSES
+    data_sets = ['rew_data_exp1']
   
     ## STEP1: EXPLORE RAW DATA
     for data_set in data_sets:
-        avg_reward( data_set)
-        lr_curve( data_set)
-        vis_model_cmp( data_set)
+        fname = f'{path}/analyses/analyses-{data_set}.pkl'
+        with open( fname, 'rb')as handle:
+                outcomes = pickle.load( handle)
+        show_RR_params( data_set, outcomes)
+        # avg_reward( data_set)
+        # lr_curve( data_set)
+        # vis_model_cmp( data_set)
 
     # ## Figure.. 
     #sloss_land()

@@ -1,6 +1,7 @@
 import numpy as np
 from numpy.core.fromnumeric import argmax 
 from scipy.special import softmax, logsumexp 
+from utils.rate_dist import RD, I
 
 # get the machine epsilon
 eps_ = 1e-12
@@ -15,10 +16,11 @@ class simpleBuffer:
         we turn the list storage into dict.
     '''
     def __init__( self):
-        self.m = [] 
+        self.m = {}
         
     def push( self, m_dict):
-        self.m = m_dict 
+        for key in m_dict.keys():
+            self.m[ key] = m_dict[ key]
         
     def sample( self, *args):
         lst = []
@@ -26,49 +28,42 @@ class simpleBuffer:
             lst.append( self.m[ key])
         return lst
 
-'''
-%%%%%%%%%%%%%%%%%%%%%%%%%%
-%    Base agent class    %
-%%%%%%%%%%%%%%%%%%%%%%%%%% 
-'''
+#=====================
+#     Base Agent
+#=====================
+
 class Basebrain:
     
-    def __init__( self, state_dim, act_dim, rng):
-        self.state_dim  = state_dim
-        self.act_dim    = act_dim
-        self.rng        = rng 
-        self.act_space  = range( self.act_dim)
-        self._init_critic()
-        self._init_actor()
-        self._init_marg_state()
-        self._init_marg_action()
+    def __init__( self, nS, nA, rng):
+        self.nS  = nS
+        self.nA  = nA
+        self.rng = rng 
+        self._init_beliefs()
         self._init_memory()
 
-    def _init_marg_state( self):
-        self.p_s = np.ones( [self.state_dim, 1]
-                          ) * 1 / self.state_dim
+    def _load_free_params( self, params):
+        self.alpha_s_stab = params[0] # learning rate for the state in the stable task 
+        self.alpha_s_vol  = params[1] # learning rate for the state in the volatile task 
 
-    def _init_marg_action( self):
-        self.p_a = np.ones( [self.act_dim, 1]
-                          ) * 1 / self.act_dim
-
-    def _init_choice_prob( self):
-        self.p_a1x = np.ones( [self.act_dim,]
-                          ) * 1 / self.act_dim
+    def _init_beliefs( self):
+        self.p_s   = np.ones( [ self.nS, 1]) / self.nS 
+        self.p_a   = np.ones( [ self.nA, 1]) / self.nA 
+        self.p_a1m = np.ones( [ self.nA,]) / self.nA
 
     def _init_memory( self):
         self.memory = simpleBuffer()
-        
-    def _init_critic( self):
-        self.q_s     = np.ones( [ 1, self.state_dim]) / self.state_dim
-        self.q_table = np.ones( [self.state_dim, self.act_dim]
-                          ) * 1 / self.act_dim
-
-    def _init_actor( self):
-        self.pi = np.ones( [ self.state_dim, self.act_dim]
-                          ) * 1 / self.act_dim
     
-    def plan_act( self, obs):
+    def O(self, state):
+        I_s = np.zeros( [ self.nS, 1])
+        I_s[ state, 0] = 1.
+        return I_s
+
+    def Q(self, action):
+        I_a = np.zeros( [ self.nA, 1])
+        I_a[ action, 0] = 1. 
+        return I_a
+    
+    def plan_act( self):
         '''Generate action given observation
             p(a|xt)
         '''
@@ -77,17 +72,17 @@ class Basebrain:
     def get_act( self):
         '''Sample from p(a|xt)
         '''
-        return self.rng.choice( self.act_space, p=self.p_a1x)
+        return self.rng.choice( 
+            range( self.nA), p=self.p_a1m)
         
     def eval_act( self, act):
         '''get from p(at|xt)
         '''
-        return self.p_a1x[ act]
+        return self.p_a1m[ act]
         
     def update( self):
-        '''Learning 
-        '''
-        return NotImplementedError
+        ## Retrieve memory
+        self.update_Ps()
     
     def pi_comp( self):
         return None 
@@ -95,418 +90,211 @@ class Basebrain:
     def EQ( self, obs):
         return None 
 
-'''
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%     Models in the paper     %
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-'''
-class model1( Basebrain):
+    def get_U( self):
+        # retrieve memory
+        obs = self.memory.sample( 'obs')[0]
+        # construct utility function: U(s,a)
+        mag0, mag1 = obs
+        u_sa = np.zeros( [ self.nS, self.nA])
+        u_sa[ 0, 0] = mag0
+        u_sa[ 1, 1] = mag1
+        return u_sa
 
-    def __init__( self, state_dim, act_dim, rng, params=[]):
-        super().__init__( state_dim, act_dim, rng)
-        if len( params):
-            self._load_free_params( params)
-    
-    def _load_free_params( self, params):
-        self.alpha_s_stab = params[0] # learning rate for the state in the stable task 
-        self.alpha_s_vol  = params[1] # learning rate for the state in the volatile task 
-        self.gamma        = params[2] # risk preference
-        self.beta         = params[3] # inverse temperature
-
-    def update( self):
-        
-        ## Retrieve memory
+    def update_Ps( self):
+        # retrieve memory
         ctxt, state = self.memory.sample( 'ctxt', 'state')
-
-        # choose ctxt
-        if ctxt: 
-            alpha_s = self.alpha_s_stab
-        else:
-            alpha_s = self.alpha_s_vol
-
-        ## Update p_s
-        # calculate δs = It(s) - p_s
-        I_st = np.zeros( [ self.state_dim, 1])
-        I_st[ state, 0] = 1.
-        rpe_s = I_st - self.p_s 
-        # p_s = p_s + α_s * δs
-        self.p_s += alpha_s * rpe_s 
-
-    def plan_act( self, obs):
-        
-        # unpack observation
-        mag0, mag1 = obs
-        # risk preference
-        pt = self.p_s[ 0, 0] 
-        pt = np.min( [ np.max( [ abs( pt - .5) ** self.gamma * np.sign( pt - .5) 
-                       + .5, 0 ] ), 1])
-        # diferenece in expected value 
-        vt = pt * mag0 - ( 1 - pt) * mag1
-        # softmax action selection
-        pit = 1 / ( 1 + np.exp( -self.beta * vt))
-        # choice probability
-        self.p_a1x = np.array( [ pit, 1 - pit])
-
-class model2( model1):
-
-    def __init__( self, state_dim, act_dim, rng, params=[]):
-        super().__init__( state_dim, act_dim, rng)
-        if len( params):
-            self._load_free_params( params)
-
-    def _load_free_params(self, params):
-        self.alpha_s_stab = params[0] # learning rate for the state in the stable task 
-        self.alpha_s_vol  = params[1] # learning rate for the state in the volatile task 
-        self.lam          = params[2] # mixture of prob and mag
-        self.beta         = params[3] # inverse temperature
-
-    def plan_act(self, obs):
-        
-        # unpack observation
-        mag0, mag1 = obs
-        pt = self.p_s[ 0, 0] 
-        # mixture of probability and magnitude 
-        vt = self.lam * ( pt - ( 1 - pt)) + \
-             ( 1 - self.lam) * ( mag0 - mag1)
-        # softmax action selection
-        pit = 1 / ( 1 + np.exp( -self.beta * vt))
-        # choice probability
-        self.p_a1x = np.array( [ pit, 1 - pit])
-
-class model7( model2):
-
-    def __init__( self, state_dim, act_dim, rng, params=[]):
-        super().__init__( state_dim, act_dim, rng)
-        if len( params):
-            self._load_free_params( params)
-
-    def _load_free_params(self, params):
-        self.alpha_s_stab = params[0] # learning rate for the state in the stable task 
-        self.alpha_s_vol  = params[1] # learning rate for the state in the volatile task 
-        self.lam          = params[2] # mixture of prob and mag
-        self.r            = params[3] # nonlinearity 
-        self.beta         = params[4] # inverse temperature
-
-    def plan_act(self, obs):
-        
-        # unpack observation
-        mag0, mag1 = obs
-        pt = self.p_s[ 0, 0] 
-        # mixture of probability and magnitude 
-        vt = self.lam * (pt - ( 1 - pt)) + ( 1 - self.lam) * \
-              abs( mag0 - mag1) ** self.r * np.sign( mag0 - mag1)
-        # softmax action selection
-        pit = 1 / ( 1 + np.exp( -self.beta * vt))
-        # choice probability
-        self.p_a1x = np.array( [ pit, 1 - pit])
-
-class model8( model7):
-
-    def __init__( self, state_dim, act_dim, rng, params=[]):
-        super().__init__( state_dim, act_dim, rng)
-        if len( params):
-            self._load_free_params( params)
-
-    def _load_free_params(self, params):
-        self.alpha_s_stab = params[0] # learning rate for the state in the stable task 
-        self.alpha_s_vol  = params[1] # learning rate for the state in the volatile task 
-        self.lam          = params[2] # mixture of prob and mag
-        self.r            = params[3] # nonlinearity 
-        self.beta         = params[4] # inverse temperature
-        self.eps          = params[5] # lapse
-
-    def plan_act(self, obs):
-        
-        # unpack observation
-        mag0, mag1 = obs
-        pt = self.p_s[ 0, 0] 
-        # mixture of probability and magnitude 
-        vt = self.lam * (pt - ( 1 - pt)) + ( 1 - self.lam) * \
-              abs( mag0 - mag1) ** self.r * np.sign( mag0 - mag1)
-        # softmax action selection + lapse
-        pit = ( 1 - self.eps) / ( 1 + np.exp( -self.beta * vt)) + self.eps / 2 
-        # choice probability
-        self.p_a1x = np.array( [ pit, 1 - pit]) 
-
-class model11( model7):
-
-    def __init__( self, state_dim, act_dim, rng, params=[]):
-        super().__init__( state_dim, act_dim, rng)
-        if len( params):
-            self._load_free_params( params)
-
-    def _load_free_params(self, params):
-        self.alpha_s_stab = params[0] # learning rate for the state in the stable task 
-        self.alpha_s_vol  = params[1] # learning rate for the state in the volatile task 
-        self.lam          = params[2] # mixture of prob and mag
-        self.r            = params[3] # nonlinearity 
-        self.alpha_a      = params[4] # learning rate of choice kernel
-        self.beta         = params[5] # inverse temperature
-        self.beta_a       = params[6] # inverse temperature for choice kernel
-
-    def update( self):
-
-        ## Retrieve memory
-        ctxt, state, action = self.memory.sample( 'ctxt', 'state', 'action')
-
-        # choose ctxt
-        if ctxt: 
-            alpha_s = self.alpha_s_stab
-        else:
-            alpha_s = self.alpha_s_vol
-
-        ## Update p_s
-        # calculate δs = It(s) - p_s
-        I_st = np.zeros( [ self.state_dim, 1])
-        I_st[ state, 0] = 1.
-        rpe_s = I_st - self.p_s 
-        # p_s = p_s + α_s * δs
-        self.p_s += alpha_s * rpe_s 
-
-        ## Update p_a
-        # calculate δa = It(a) - p_a
-        I_at = np.zeros( [ self.act_dim, 1])
-        I_at[ action, 0] = 1.
-        rpe_a = I_at - self.p_a 
-        # p_a = p_a + α_a * δa
-        self.p_a += self.alpha_a * rpe_a 
-
-    def plan_act(self, obs):
-        
-        # unpack observation
-        mag0, mag1 = obs
-        pt = self.p_s[ 0, 0] 
-        # mixture of probability and magnitude 
-        vt = self.lam * (pt - ( 1 - pt)) + ( 1 - self.lam) * \
-              abs( mag0 - mag1) ** self.r * np.sign( mag0 - mag1)
-        # softmax action selection 
-        pit = 1 / ( 1 + np.exp( - ( self.beta * vt + 
-                  self.beta_a * ( self.p_a[ 0, 0] - self.p_a[ 1, 0])))) 
-        # choice probability
-        self.p_a1x = np.array( [ pit, 1 - pit]) 
-
-#========================================
-#     Eligibility trace for state       
-#========================================   
-
-class model11_e( model11):
-
-    def __init__( self, state_dim, act_dim, rng, params=[]):
-        super().__init__( state_dim, act_dim, rng)
-        if len( params):
-            self._load_free_params( params)
-
-    def _load_free_params(self, params):
-        self.alpha     = params[0] # learning rate for the state in the stable task 
-        self.nu        = params[1] # the decay of eligibility 
-        self.lam       = params[2] # mixture of prob and mag
-        self.r         = params[3] # nonlinearity 
-        self.alpha_a   = params[4] # learning rate of choice kernel
-        self.beta      = params[5] # inverse temperature
-        self.beta_a    = params[6] # inverse temperature for choice kernel
-        self.e_trace   = 0
-
-    def update( self):
-
-        ## Retrieve memory
-        state, action = self.memory.sample( 'state', 'action')
-
-        ## Update p_s
-        # calculate δs = It(s) - p_s
-        I_st = np.zeros( [ self.state_dim, 1])
-        I_st[ state, 0] = 1.
-        self.e_trace = self.nu * self.e_trace + I_st
-        self.e_trace /= self.e_trace.sum()
-        rpe_s = self.e_trace - self.p_s 
-        # p_s = p_s + α_s * δs
-        self.p_s += self.alpha * rpe_s 
-
-        ## Update p_a
-        # calculate δa = It(a) - p_a
-        I_at = np.zeros( [ self.act_dim, 1])
-        I_at[ action, 0] = 1.
-        rpe_a = I_at - self.p_a 
-        # p_a = p_a + α_a * δa
-        self.p_a += self.alpha_a * rpe_a 
-
-class model11_m( model11):
-
-    def __init__( self, state_dim, act_dim, rng, params=[]):
-        super().__init__( state_dim, act_dim, rng)
-        if len( params):
-            self._load_free_params( params)
-
-    def _load_free_params(self, params):
-        self.alpha     = params[0] # learning rate for the state in the stable task 
-        self.lam       = params[1] # mixture of prob and mag
-        self.r         = params[2] # nonlinearity 
-        self.alpha_a   = params[3] # learning rate of choice kernel
-        self.beta      = params[4] # inverse temperature
-        self.beta_a    = params[5] # inverse temperature for choice kernel
-
-    def update( self):
-
-        ## Retrieve memory
-        state, action = self.memory.sample( 'state', 'action')
-
-        ## Update p_s
-        # calculate δs = It(s) - p_s
-        I_st = np.zeros( [ self.state_dim, 1])
-        I_st[ state, 0] = 1.
-        rpe_s = I_st - self.p_s 
-        # p_s = p_s + α_s * δs
-        self.p_s += self.alpha * rpe_s 
-
-        ## Update p_a
-        # calculate δa = It(a) - p_a
-        I_at = np.zeros( [ self.act_dim, 1])
-        I_at[ action, 0] = 1.
-        rpe_a = I_at - self.p_a 
-        # p_a = p_a + α_a * δa
-        self.p_a += self.alpha_a * rpe_a 
-
-#==========================================
-#     Resource rational model for policy      
-#===========================================  
-
-class RRmodel( model11):
-
-    def __init__( self, state_dim, act_dim, rng, params=[]):
-        super().__init__( state_dim, act_dim, rng)
-        if len( params):
-            self._load_free_params( params)
-
-    def _load_free_params( self, params):
-        self.alpha_s  = params[0] # learning rate for the state in the stable task 
-        self.alpha_a  = params[1] # learning rate of choice kernel
-        self.beta     = params[2] # temperature
-        self.nu       = 0
-        self.e_trace  = 0 
-
-    def update( self):
-
-        ## Retrieve memory
-        state, action = self.memory.sample( 'state', 'action')
-
-        ## Update p_s
-        # calculate δs = 1 - v(st)
-        I_st = np.zeros( [ self.state_dim, 1])
-        I_st[ state, 0] = 1.
-        self.e_trace = self.nu * self.e_trace + I_st
-        self.e_trace /= self.e_trace.sum()
-        rpe_s = self.e_trace - self.p_s 
-        # p_s = p_s + α_s * δs
-        self.p_s += self.alpha_s * rpe_s 
-
-        ## Update p_a
-        # calculate δa = It(a) - p_a
-        I_at = np.zeros( [ self.act_dim, 1])
-        I_at[ action, 0] = 1.
-        rpe_a = I_at - self.p_a 
-        # p_a = p_a + α_a * δa
-        self.p_a += self.alpha_a * rpe_a 
-    
-    def plan_act( self, obs):
-
-        # get Q
-        mag0, mag1 = obs 
-        Q = np.array([[ mag0,    0],
-                      [    0, mag1]])
-        # get π ∝ exp[ βQ(s,a) + log p_a(a)]
-        log_pi = self.beta * Q + np.log( self.p_a.T + eps_) #sa
-        self.pi = np.exp( log_pi - logsumexp( 
-                          log_pi, keepdims=True, axis=1)) #sa
-        # action probability given observation
-        self.p_a1x = ( self.p_s.T @ self.pi).reshape([-1]) 
-
-    def log_p( self, x):
-        log_p = np.log( x)
-        log_p[ log_p <= -1e11 ] = 0.
-        return log_p 
-
-    def pi_comp( self):
-        MI = np.sum(self.p_s * self.pi * (self.log_p( self.pi)
-                     - self.log_p( self.p_a.T)))
-        return MI
-
-    def EQ( self, obs):
-        # get Q
-        mag0, mag1 = obs 
-        Q = np.array([[ mag0,    0],
-                      [    0, mag1]])
-        # EQ = ∑_s ∑π(a|s) Q(s,a)
-        return np.sum( self.p_s * self.pi * Q)
-
-class RRmodel_e( RRmodel):
-
-    def __init__( self, state_dim, act_dim, rng, params=[]):
-        super().__init__( state_dim, act_dim, rng)
-        if len( params):
-            self._load_free_params( params)
-
-    def _load_free_params( self, params):
-        self.alpha_s  = params[0] # learning rate for the state in the stable task 
-        self.alpha_a  = params[1] # learning rate of choice kernel
-        self.beta     = params[2] # temperature
-        self.nu       = params[3]
-        self.e_trace  = 0
-
-class RRmodel_ctxt( RRmodel):
-
-    def __init__( self, state_dim, act_dim, rng, params=[]):
-        super().__init__( state_dim, act_dim, rng)
-        if len( params):
-            self._load_free_params( params)
-
-    def _load_free_params( self, params):
-        self.alpha_s_stab = params[0] # learning rate for the state in the stable task 
-        self.alpha_s_vol  = params[1] # learning rate for the state in the volatile task 
-        self.alpha_a_stab = params[2] # learning rate of choice kernel stab
-        self.alpha_a_vol  = params[3] # learning rate of choice kernel volatile
-        self.beta_stab    = params[4] # temperature stable
-        self.beta_vol     = params[5] # temperature volatile 
-
-    def update( self):
-
-        ## Retrieve memory
-        ctxt, state, action = self.memory.sample( 'ctxt', 'state', 'action')
-
-        # choose ctxt
+        # choose parameter set 
         alpha_s = self.alpha_s_stab if ctxt else self.alpha_s_vol
-        alpha_a = self.alpha_a_stab if ctxt else self.alpha_a_vol
-
         ## Update p_s
-        # calculate δs = 1 - v(st)
-        I_st = np.zeros( [ self.state_dim, 1])
-        I_st[ state, 0] = 1.
-        rpe_s = I_st - self.p_s 
+        # δs = It(s) - p_s
+        rpe_s = self.O(state) - self.p_s 
         # p_s = p_s + α_s * δs
-        self.p_s += alpha_s * rpe_s
+        self.p_s += alpha_s * rpe_s 
 
+    def update_Pa( self):
+        # retrieve memory
+        ctxt, act = self.memory.sample( 'ctxt', 'act')
+        # choose parameter set 
+        alpha_a = self.alpha_a_stab if ctxt else self.alpha_a_vol
         ## Update p_a
-        # calculate δa = It(a) - p_a
-        I_at = np.zeros( [ self.act_dim, 1])
-        I_at[ action, 0] = 1.
-        rpe_a = I_at - self.p_a 
+        # δs = It(a) - p_a
+        rpe_a = self.Q(act) - self.p_a 
         # p_a = p_a + α_a * δa
         self.p_a += alpha_a * rpe_a 
+
+#==========================
+#        Base Agent
+#==========================
+
+class NM( Basebrain):
+    '''Normative model
+    '''
+    def __init__( self, nS, nA, rng, params=[]):
+        super().__init__( nS, nA, rng)
+        if len( params):
+            self._load_free_params( params)
     
-    def plan_act( self, obs):
-        # get context 
-        ctxt = self.memory.sample('ctxt')
-        beta = self.beta_stab if ctxt else self.beta_vol
-        # get Q
-        mag0, mag1 = obs 
-        Q = np.array([[ mag0,    0],
-                      [    0, mag1]])
-        # get π ∝ exp[ βQ(s,a) + log p_a(a)]
-        log_pi = beta * Q + np.log( self.p_a.T + eps_) #sa
-        self.pi = np.exp( log_pi - logsumexp( 
-                          log_pi, keepdims=True, axis=1)) #sa
-        # action probability given observation
-        self.p_a1x = ( self.p_s.T @ self.pi).reshape([-1]) 
+    def _load_free_params( self, params):
+        self.alpha_s_stab = params[0] # learning rate for the state in the stable task
+        self.alpha_s_vol  = params[1] # learning rate for the state in the volatile task 
+        self.k            = params[2] # capacity
 
+    def plan_act( self):
+        # construct utility function 
+        u_sa = self.get_U()
+        # derive the optimal policy
+        self.pi, p_a, _, _ = RD(u_sa, self.p_s, self.k)
+        # marginal over state 
+        self.p_a1m = p_a[ :, 0]
 
+class NMa( NM):
+    def __init__( self, nS, nA, rng, params=[]):
+        super().__init__( nS, nA, rng)
+        if len( params):
+            self._load_free_params( params)
 
+    def _load_free_params( self, params):
+        # params for stab
+        self.alpha_s_stab = params[0] # learning rate for p(s)
+        self.alpha_a_stab = params[1] # learning rate for p(a) 
+        # params for wol 
+        self.alpha_s_vol  = params[2] # learning rate for p(s)
+        self.alpha_a_vol  = params[3] # learning rate for p(a) 
+        # general params
+        self.k            = params[4] # capacity 
 
+    def plan_act( self):
+        # construct utility function 
+        u_sa = self.get_U()
+        # derive the optimal policy
+        self.pi, p_a, _, _ = RD( u_sa, self.p_s, self.k,)
+        # marginal over state 
+        self.p_a1m = p_a[ :, 0]
+        
+    def update( self):
+        ## Retrieve memory
+        self.update_Ps()
+        self.update_Pa()
 
+class TM( Basebrain):
+
+    def __init__( self, state_dim, act_dim, rng, params=[]):
+        super().__init__( state_dim, act_dim, rng)
+        if len( params):
+            self._load_free_params( params)
+
+    def _load_free_params(self, params):
+        # params for stab
+        self.alpha_s_stab = params[0] # learning rate for p(s)
+        self.tau_stab     = params[1] # inverse temp 
+        # params for vol 
+        self.alpha_s_vol  = params[2] # learning rate for p(s)
+        self.tau_vol      = params[3] # inverse temp 
+    
+    def plan_act(self,):
+        # retrieve memory
+        ctxt = self.memory.sample( 'ctxt')
+        # choose parameter set 
+        beta = 1 / self.tau_stab if ctxt else 1 / self.tau_vol
+        # construct utility function 
+        u_sa = self.get_U()
+        # unpack observation 
+        self.pi = softmax( beta * u_sa + np.log( self.p_a.T + eps_))
+        self.p_a = self.pi.T @ self.p_s  
+        # choice probability
+        self.p_a1m = self.p_a[ :, 0]
+
+class TMa( Basebrain):
+
+    def __init__( self, state_dim, act_dim, rng, params=[]):
+        super().__init__( state_dim, act_dim, rng)
+        if len( params):
+            self._load_free_params( params)
+
+    def _load_free_params(self, params):
+        # params for stab
+        self.alpha_s_stab = params[0] # learning rate for p(s)
+        self.alpha_a_stab = params[1] # learning rate for p(a)
+        self.tau_stab     = params[2] # inverse temp  
+        # params for wol 
+        self.alpha_s_vol  = params[3] # learning rate for p(s)
+        self.alpha_a_vol  = params[4] # learning rate for p(a) 
+        self.tau_vol      = params[5] # inverse temp
+
+    def plan_act(self,):
+        # retrieve memory
+        ctxt = self.memory.sample( 'ctxt')
+        # choose parameter set 
+        beta = 1 / self.tau_stab if ctxt else 1 / self.tau_vol
+        # construct utility function 
+        u_sa = self.get_U()
+        # unpack observation 
+        self.pi = softmax( beta * u_sa + np.log( self.p_a.T + eps_))
+        p_a = self.pi.T @ self.p_s  
+        # choice probability
+        self.p_a1m = p_a[ :, 0]
+
+class SM( Basebrain):
+
+    def __init__( self, state_dim, act_dim, rng, params=[]):
+        super().__init__( state_dim, act_dim, rng)
+        if len( params):
+            self._load_free_params( params)
+
+    def _load_free_params(self, params):
+        # params for stab
+        self.alpha_s_stab = params[0] # learning rate for p(s)
+        self.alpha_t_stab = params[1] # learning rate for τ
+        # params for wol 
+        self.alpha_s_vol  = params[2] # learning rate for p(s)
+        self.alpha_t_vol  = params[3] # learning rate for τ
+        # tau 
+        self.k            = params[4] # capacity 
+        self.tau          = params[5] # tradeoff 0 
+
+    def plan_act(self,):
+        # choose parameter set 
+        beta = 1 / self.tau 
+        # construct utility function 
+        u_sa = self.get_U()
+        # unpack observation 
+        self.pi = softmax( beta * u_sa + np.log( self.p_a.T + eps_))
+        p_a = self.pi.T @ self.p_s  
+        # choice probability
+        self.p_a1m = p_a[ :, 0]
+
+    def update_tau( self):
+        # retrieve memory
+        ctxt = self.memory.sample( 'ctxt')
+        # choose parameter set 
+        alpha_t = self.alpha_t_stab if ctxt else self.alpha_t_vol
+        p_a = self.pi.T @ self.p_s
+        vio = I( self.p_s, self.pi, p_a) - self.k
+        tau = self.tau + alpha_t * vio 
+        self.tau = np.clip( tau, 1e-3, 1000)
+
+    def update( self):
+        ## Retrieve memory
+        self.update_Ps()
+        self.update_tau()
+
+class SMa( SM):
+
+    def _load_free_params(self, params):
+        # params for stab
+        self.alpha_s_stab = params[0] # learning rate for p(s)
+        self.alpha_a_stab = params[1]
+        self.alpha_t_stab = params[2] # learning rate for τ
+        # params for wol 
+        self.alpha_s_vol  = params[3] # learning rate for p(s)
+        self.alpha_a_vol  = params[4] # learning rate for τ
+        self.alpha_t_vol  = params[5] 
+        # tau 
+        self.k            = params[6] # capacity 
+        self.tau          = params[7] # tradeoff 0 
+
+    def update( self):
+        ## Retrieve memory
+        self.update_Ps()
+        self.update_Pa()
+        self.update_tau()

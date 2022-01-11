@@ -59,14 +59,13 @@ class subj:
             ctxt  = int( data.b_type[t])
             state = int( data.state[t])
             # planning the action
-            mem = { 'ctxt': ctxt, 'obs': obs }    
+            mem = { 'ctxt': ctxt, 'obs': obs, 'state': state }    
             brain.memory.push( mem) 
-            brain.plan_act( obs)
+            brain.plan_act()
             act   = int( data.action[t])
             rew   = obs[ act]
             # store 
-            mem = { 'ctxt': ctxt, 'obs': obs, 'state': state,
-                  'action': act,  'rew': rew,     't': t }    
+            mem = { 'act': act,  'rew': rew,     't': t }    
             brain.memory.push( mem)
             # evaluate: log π(a|xt)
             NLL += - np.log( brain.eval_act( act) + eps_)
@@ -107,7 +106,7 @@ class subj:
         
         return res.x, res.fun 
 
-    def predict( self, params, data=False):
+    def predict( self, data, params, ):
         '''Calculate the predicted trajectories
         using fixed parameters
         '''
@@ -143,7 +142,9 @@ class subj:
             state     = int(data['state'][t])
             human_act = int(data['human_act'][t])
             ctxt      = int(data['b_type'][t])
-            agent.plan_act( obs)
+            mem = { 'ctxt': ctxt, 'obs': obs, 'state': state}
+            agent.memory.push( mem)  
+            agent.plan_act()
             act       = agent.get_act()
             rew       = obs[act] * ( state == act)
             
