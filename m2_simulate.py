@@ -15,8 +15,8 @@ path = os.path.dirname(os.path.abspath(__file__))
 
 ## pass the hyperparams
 parser = argparse.ArgumentParser(description='Test for argparse')
-parser.add_argument('--agent_name', '-n', help='choose agent', default='IM_Pi_1')
-parser.add_argument('--data_set', '-d', help='choose data set', default='collins_12')
+parser.add_argument('--agent_name', '-n', help='choose agent', default='RRmodel_ctxt')
+parser.add_argument('--data_set', '-d', help='choose data set', default='rew_data_exp1')
 parser.add_argument('--n_sim', '-f', help='f simulations', type=int, default=20)
 parser.add_argument('--group', '-g', help='choose agent', default='ind')
 parser.add_argument('--seed', '-s', help='random seed', type=int, default=120)
@@ -51,7 +51,7 @@ def simulate( data, args, seed, in_params=[]):
 
         # synthesize the data and save
         seed += 1
-        sim_sample = model.predict( data[ sub_idx], params)
+        sim_sample = model.predict( {f'{sub_idx}':data[ sub_idx]}, params)
         if i == 0:
             sim_data = sim_sample 
         else:

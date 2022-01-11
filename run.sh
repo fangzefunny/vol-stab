@@ -6,8 +6,7 @@ python m0_preprocess.py
 ## declare all models and all data sets
 declare data_sets=("rew_data_exp1")
 declare groups=("ind")
-declare models=("RRmodel_ctxt")
-#declare models=("model1" "model2" "model11" "RRmodel")
+declare models=("TM" "SM" "TMa" "SMa" "NM")
 
 ## step 1: fit the model
 for data_set in "${data_sets[@]}"; do 
