@@ -422,7 +422,26 @@ def show_RR_params( data_set, outcomes):
         ax.imshow( mat, cmap='Reds')
 
     fig.tight_layout()
-    plt.savefig( f'{path}/figures/param_smary.png', dpi=500)   
+    plt.savefig( f'{path}/figures/param_smary.png', dpi=500) 
+
+def Tab_show_fit( data_set):
+
+    models = [ 'TM', 'SM', 'TMa', 'SMa']
+    titles = models 
+    col = [ 'NLL', 'AIC', 'BIC']
+    fits = np.zeros( [ len(models), 3])
+
+    ## Load data 
+    with open(f'{path}/analyses/analyses-{data_set}.pkl', 'rb') as handle:
+        outcomes = pickle.load( handle)
+
+    for i, model in enumerate(models):
+        fits[ i, 0] = outcomes[ model]['nll']
+        fits[ i, 1] = outcomes[ model]['aic']
+        fits[ i, 2] = outcomes[ model]['bic']   
+    tab = pd.DataFrame( fits, index=titles, columns=col)
+    tab.to_csv( f'{path}/figures/Tab_show_fit-{data_set}.csv')
+      
 
 if __name__ == '__main__':
 
@@ -431,10 +450,11 @@ if __name__ == '__main__':
   
     ## STEP1: EXPLORE RAW DATA
     for data_set in data_sets:
-        fname = f'{path}/analyses/analyses-{data_set}.pkl'
-        with open( fname, 'rb')as handle:
-                outcomes = pickle.load( handle)
-        show_RR_params( data_set, outcomes)
+        # fname = f'{path}/analyses/analyses-{data_set}.pkl'
+        # with open( fname, 'rb')as handle:
+        #         outcomes = pickle.load( handle)
+        Tab_show_fit( data_set)
+        #show_RR_params( data_set, outcomes)
         # avg_reward( data_set)
         # lr_curve( data_set)
         # vis_model_cmp( data_set)
