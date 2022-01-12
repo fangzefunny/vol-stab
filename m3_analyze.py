@@ -15,7 +15,7 @@ path = os.path.dirname(os.path.abspath(__file__))
 parser = argparse.ArgumentParser(description='Test for argparse')
 parser.add_argument('--n_subj', '-f', help='f simulations', type=int, default=20)
 parser.add_argument('--data_set', '-d', help='choose data set', default='rew_data_exp1')
-parser.add_argument('--agent_name', '-n', help='choose agent', default='RRmodel_ctxt')
+parser.add_argument('--agent_name', '-n', help='choose agent', default='SM,TM,TMa,SMa')
 parser.add_argument('--n_cores', '-c', help='number of CPU cores used for parallel computing', 
                                             type=int, default=0)
 args = parser.parse_args()
@@ -198,7 +198,7 @@ if __name__ == '__main__':
     #outcomes = smry_analyses( pool, outcomes, models, args)
 
     ## STEP3: GET PARAMS SUMMARY
-    outcomes = smry_params( outcomes, models, args)
+    #outcomes = smry_params( outcomes, models, args)
     
     ## STEP3: SAVE THE OUTCOMES
     with open( fname, 'wb')as handle:

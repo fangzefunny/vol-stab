@@ -199,7 +199,7 @@ class TM( Basebrain):
         # construct utility function 
         u_sa = self.get_U()
         # unpack observation 
-        self.pi = softmax( beta * u_sa + np.log( self.p_a.T + eps_))
+        self.pi = softmax( beta * u_sa + np.log( self.p_a.T + eps_), axis=1)
         self.p_a = self.pi.T @ self.p_s  
         # choice probability
         self.p_a1m = self.p_a[ :, 0]
@@ -229,7 +229,7 @@ class TMa( Basebrain):
         # construct utility function 
         u_sa = self.get_U()
         # unpack observation 
-        self.pi = softmax( beta * u_sa + np.log( self.p_a.T + eps_))
+        self.pi = softmax( beta * u_sa + np.log( self.p_a.T + eps_), axis=1)
         p_a = self.pi.T @ self.p_s  
         # choice probability
         self.p_a1m = p_a[ :, 0]
@@ -258,7 +258,7 @@ class SM( Basebrain):
         # construct utility function 
         u_sa = self.get_U()
         # unpack observation 
-        self.pi = softmax( beta * u_sa + np.log( self.p_a.T + eps_))
+        self.pi = softmax( beta * u_sa + np.log( self.p_a.T + eps_), axis=1)
         p_a = self.pi.T @ self.p_s  
         # choice probability
         self.p_a1m = p_a[ :, 0]

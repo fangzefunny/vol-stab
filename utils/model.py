@@ -136,8 +136,8 @@ class subj:
         for t in range( data.shape[0]):
 
             # obtain st, at, and rt
-            mag0      = int(data['mag0'][t])
-            mag1      = int(data['mag1'][t])
+            mag0      = data['mag0'][t]
+            mag1      = data['mag1'][t]
             obs       = [ mag0, mag1]
             state     = int(data['state'][t])
             human_act = int(data['human_act'][t])

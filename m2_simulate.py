@@ -15,9 +15,9 @@ path = os.path.dirname(os.path.abspath(__file__))
 
 ## pass the hyperparams
 parser = argparse.ArgumentParser(description='Test for argparse')
-parser.add_argument('--agent_name', '-n', help='choose agent', default='RRmodel_ctxt')
+parser.add_argument('--agent_name', '-n', help='choose agent', default='SMa')
 parser.add_argument('--data_set', '-d', help='choose data set', default='rew_data_exp1')
-parser.add_argument('--n_sim', '-f', help='f simulations', type=int, default=20)
+parser.add_argument('--n_sim', '-f', help='f simulations', type=int, default=1)
 parser.add_argument('--group', '-g', help='choose agent', default='ind')
 parser.add_argument('--seed', '-s', help='random seed', type=int, default=120)
 parser.add_argument('--n_cores', '-c', help='number of CPU cores used for parallel computing', 
