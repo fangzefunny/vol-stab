@@ -15,8 +15,8 @@ eps_ = 1e-12
 def I( p_x, p_y1x, p_y):
     '''Mutual information
     '''
-    Ixy = np.sum( p_x*p_y1x * ( np.log( p_y1x ) 
-                              - np.log( p_y.T )))
+    Ixy = np.sum( p_x*p_y1x * ( np.log( p_y1x + eps_) 
+                              - np.log( p_y.T + eps_)))
     return Ixy
 
 def RD( u_fn, p_x, k, **kwargs):
