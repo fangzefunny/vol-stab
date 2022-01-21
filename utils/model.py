@@ -167,8 +167,7 @@ class subj:
             if agent.EQ(obs) is not None: pred_data['EQ'][t] = agent.EQ(obs)
 
             # store 
-            mem = { 'ctxt': ctxt, 'obs': obs, 'state': state,
-                  'action': act,  'rew': rew,     't': t }   
+            mem = { 'act': act,  'rew': rew,     't': t }   
             agent.memory.push( mem)   
             
             # model update

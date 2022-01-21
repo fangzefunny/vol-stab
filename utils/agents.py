@@ -172,8 +172,17 @@ class RDModel( Basebrain):
         ## Retrieve memory
         self.update_Ps()
         self.update_Pa()
+    
+    def pi_comp(self):
+        return np.sum( self.p_s * self.pi * 
+                       ( np.log( self.pi + eps_) 
+                       - np.log( self.q_a.T + eps_)))
+    
+    def EQ( self,):
+        u_sa = self.get_U()
+        return np.sum( self.p_s * self.pi * u_sa)
 
-class RDModel2( Basebrain):
+class RDModel2( RDModel):
     
     def __init__( self, nS, nA, rng, params=[]):
         super().__init__( nS, nA, rng)
@@ -229,7 +238,39 @@ class RDModel2( Basebrain):
         ## Retrieve memory
         self.update_Ps()
         self.update_Pa()
+
+class RDModel3( RDModel2):
     
+    def __init__( self, nS, nA, rng, params=[]):
+        super().__init__( nS, nA, rng)
+        if len( params):
+            self._load_free_params( params)
+    
+    def _load_free_params( self, params):
+        # params for stab
+        self.alpha_s_stab = params[0] # learning rate for p(s)
+        self.alpha_a_stab = params[1] # learning rate for p(a)
+        self.beta_stab    = params[2] # inverse temp  
+        # params for wol 
+        self.alpha_s_vol  = params[3] # learning rate for p(s)
+        self.alpha_a_vol  = params[4] # learning rate for p(a) 
+        self.beta_vol     = params[5] # inverse temp
+        # n
+        self.r            = params[6] # nonlinearity
+
+    def plan_act(self):
+        # retrieve memory
+        ctxt = self.memory.sample( 'ctxt')
+        # choose parameter set 
+        beta = self.beta_stab if ctxt else self.beta_vol
+        # construct utility function 
+        u_sa = self.get_U()
+        # pi(a|s) ∝ exp( βU(s,a) + log q(a))
+        f_a1s   = beta * (u_sa**self.r) + np.log( self.q_a.T + eps_)
+        self.pi = softmax(  f_a1s, axis=1)
+        # marginal over state 
+        self.P_a = ( self.p_s.T @ self.pi).reshape([-1])
+
 class SMModel( Basebrain):
     
     def __init__( self, nS, nA, rng, params=[]):
@@ -254,7 +295,7 @@ class SMModel( Basebrain):
         u_sa = self.get_U()
         # pi(a|s) ∝ exp( βU(s,a))
         f_a1s   = beta * u_sa 
-        self.pi = softmax(  f_a1s, axis=1)
+        self.pi = softmax( f_a1s, axis=1)
         # marginal over state 
         self.P_a = ( self.p_s.T @ self.pi).reshape([-1])
     
@@ -272,6 +313,36 @@ class SMModel( Basebrain):
     def update( self):
         ## Retrieve memory
         self.update_Ps()
+
+class SMModel2( SMModel):
+
+    def __init__( self, nS, nA, rng, params=[]):
+        super().__init__( nS, nA, rng)
+        if len( params):
+            self._load_free_params( params)
+    
+    def _load_free_params( self, params):
+        # params for stab
+        self.alpha_s_stab = params[0] # learning rate for p(s)
+        self.beta_stab    = params[1] # inverse temp  
+        # params for wol 
+        self.alpha_s_vol  = params[2] # learning rate for p(s)
+        self.beta_vol     = params[3] # inverse temp
+        # general
+        self.r            = params[4] # nonlinearity 
+
+    def plan_act(self):
+        # retrieve memory
+        ctxt = self.memory.sample( 'ctxt')
+        # choose parameter set 
+        beta = self.beta_stab if ctxt else self.beta_vol
+        # construct utility function 
+        u_sa = self.get_U()
+        # pi(a|s) ∝ exp( βU(s,a))
+        f_a1s   = beta * (u_sa ** self.r) 
+        self.pi = softmax( f_a1s, axis=1)
+        # marginal over state 
+        self.P_a = ( self.p_s.T @ self.pi).reshape([-1])
     
 #==========================
 #        Base Agent
