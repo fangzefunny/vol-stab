@@ -164,7 +164,7 @@ class subj:
                 pred_data['pi_0'][t] = agent.pi[ 0, 0]
                 pred_data['pi_1'][t] = agent.pi[ 1, 0]
             if agent.pi_comp() is not None: pred_data['pi_comp'][t] = agent.pi_comp()
-            if agent.EQ(obs) is not None: pred_data['EQ'][t] = agent.EQ(obs)
+            if agent.EQ() is not None: pred_data['EQ'][t] = agent.EQ()
 
             # store 
             mem = { 'act': act,  'rew': rew,     't': t }   
