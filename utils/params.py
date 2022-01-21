@@ -20,8 +20,24 @@ def set_hyperparams(args):
     ## elife models
     args.agent = eval( args.agent_name)
     args.param_priors = None
+
+    # CogSci
+    if args.agent_name == 'RDModel':
+        args.bnds        = ( ( 0, 1), ( 0, 1), ( 0, 20),)
+        args.params_name = [ 'α_s', 'α_a', 'β',]
+    elif args.agent_name == 'RDModel2':
+        args.bnds        = ( ( 0, 1), ( 0, 1), ( 0, 20),
+                             ( 0, 1), ( 0, 1), ( 0, 20),)
+        args.params_name = [ 'α_s_stab', 'α_a_stab', 'β_stab',
+                             'α_s_vol',  'α_a_vol',  'β_vol',]
+    elif args.agent_name == 'SMModel':
+        args.bnds        = ( ( 0, 1), ( 0, 20),
+                             ( 0, 1), ( 0, 20),)
+        args.params_name = [ 'α_s_stab', 'β_stab',
+                             'α_s_vol',  'β_vol',]
+
     # basic 
-    if args.agent_name == 'NM':
+    elif args.agent_name == 'NM':
         args.bnds        = ( ( 0, 1), 
                              ( 0, 1), 
                              ( 0, 5),)

@@ -7,7 +7,10 @@ from utils.rate_dist import RD, I
 eps_ = 1e-12
 max_ = 1e+10
 
-# the replay buffer to store the memory 
+#==========================
+#       Memory Buffer
+#==========================
+
 class simpleBuffer:
     '''Simple Buffer 2.0
 
@@ -47,8 +50,8 @@ class Basebrain:
 
     def _init_beliefs( self):
         self.p_s   = np.ones( [ self.nS, 1]) / self.nS 
-        self.p_a   = np.ones( [ self.nA, 1]) / self.nA 
-        self.p_a1m = np.ones( [ self.nA,]) / self.nA
+        self.q_a   = np.ones( [ self.nA, 1]) / self.nA 
+        self.P_a   = np.ones( [ self.nA,]) / self.nA
 
     def _init_memory( self):
         self.memory = simpleBuffer()
@@ -73,12 +76,12 @@ class Basebrain:
         '''Sample from p(a|xt)
         '''
         return self.rng.choice( 
-            range( self.nA), p=self.p_a1m)
+            range( self.nA), p=self.P_a)
         
     def eval_act( self, act):
         '''get from p(at|xt)
         '''
-        return self.p_a1m[ act]
+        return self.P_a[ act]
         
     def update( self):
         ## Retrieve memory
@@ -118,10 +121,158 @@ class Basebrain:
         alpha_a = self.alpha_a_stab if ctxt else self.alpha_a_vol
         ## Update p_a
         # δs = It(a) - p_a
-        rpe_a = self.Q(act) - self.p_a 
+        rpe_a = self.Q(act) - self.q_a 
         # p_a = p_a + α_a * δa
-        self.p_a += alpha_a * rpe_a 
+        self.q_a += alpha_a * rpe_a 
 
+#==========================
+#       CogSci Agent
+#==========================
+
+class RDModel( Basebrain):
+
+    def __init__( self, nS, nA, rng, params=[]):
+        super().__init__( nS, nA, rng)
+        if len( params):
+            self._load_free_params( params)
+    
+    def _load_free_params( self, params):
+        self.alpha_s = params[0] # p(s) learning rate 
+        self.alpha_a = params[1] # p(a) learning rate 
+        self.beta    = params[2] # tradeoff 
+
+    def plan_act(self):
+        # construct utility function 
+        u_sa = self.get_U()
+        # pi(a|s) ∝ exp( βU(s,a) + log q(a))
+        f_a1s   = self.beta * u_sa + np.log( self.q_a.T + eps_)
+        self.pi = softmax(  f_a1s, axis=1)
+        # marginal over state 
+        self.P_a = ( self.p_s.T @ self.pi).reshape([-1])
+    
+    def update_Ps( self):
+        # retrieve memory
+        state = self.memory.sample( 'state')
+        ## Update p_s
+        # δs = It(s) - p_s
+        rpe_s = self.O(state) - self.p_s 
+        # p_s = p_s + α_s * δs
+        self.p_s += self.alpha_s * rpe_s 
+    
+    def update_Pa( self):
+        # retrieve memory
+        act = self.memory.sample( 'act')
+        ## Update p_a
+        # δs = It(a) - p_a
+        rpe_a = self.Q(act) - self.q_a 
+        # p_a = p_a + α_a * δa
+        self.q_a += self.alpha_a * rpe_a 
+
+    def update( self):
+        ## Retrieve memory
+        self.update_Ps()
+        self.update_Pa()
+
+class RDModel2( Basebrain):
+    
+    def __init__( self, nS, nA, rng, params=[]):
+        super().__init__( nS, nA, rng)
+        if len( params):
+            self._load_free_params( params)
+    
+    def _load_free_params( self, params):
+        # params for stab
+        self.alpha_s_stab = params[0] # learning rate for p(s)
+        self.alpha_a_stab = params[1] # learning rate for p(a)
+        self.beta_stab    = params[2] # inverse temp  
+        # params for wol 
+        self.alpha_s_vol  = params[3] # learning rate for p(s)
+        self.alpha_a_vol  = params[4] # learning rate for p(a) 
+        self.beta_vol     = params[5] # inverse temp
+
+    def plan_act(self):
+        # retrieve memory
+        ctxt = self.memory.sample( 'ctxt')
+        # choose parameter set 
+        beta = self.beta_stab if ctxt else self.beta_vol
+        # construct utility function 
+        u_sa = self.get_U()
+        # pi(a|s) ∝ exp( βU(s,a) + log q(a))
+        f_a1s   = beta * u_sa + np.log( self.q_a.T + eps_)
+        self.pi = softmax(  f_a1s, axis=1)
+        # marginal over state 
+        self.P_a = ( self.p_s.T @ self.pi).reshape([-1])
+    
+    def update_Ps( self):
+        # retrieve memory
+        ctxt, state = self.memory.sample( 'ctxt', 'state')
+        # choose parameter set 
+        alpha_s = self.alpha_s_stab if ctxt else self.alpha_s_vol
+        ## Update p_s
+        # δs = It(s) - p_s
+        rpe_s = self.O(state) - self.p_s 
+        # p_s = p_s + α_s * δs
+        self.p_s += alpha_s * rpe_s 
+    
+    def update_Pa( self):
+        # retrieve memory
+        ctxt, act = self.memory.sample( 'ctxt', 'act')
+         # choose parameter set 
+        alpha_a = self.alpha_a_stab if ctxt else self.alpha_a_vol
+        ## Update p_a
+        # δs = It(a) - p_a
+        rpe_a = self.Q(act) - self.q_a 
+        # p_a = p_a + α_a * δa
+        self.q_a += alpha_a * rpe_a 
+
+    def update( self):
+        ## Retrieve memory
+        self.update_Ps()
+        self.update_Pa()
+    
+class SMModel( Basebrain):
+    
+    def __init__( self, nS, nA, rng, params=[]):
+        super().__init__( nS, nA, rng)
+        if len( params):
+            self._load_free_params( params)
+    
+    def _load_free_params( self, params):
+        # params for stab
+        self.alpha_s_stab = params[0] # learning rate for p(s)
+        self.beta_stab    = params[1] # inverse temp  
+        # params for wol 
+        self.alpha_s_vol  = params[2] # learning rate for p(s)
+        self.beta_vol     = params[3] # inverse temp
+
+    def plan_act(self):
+        # retrieve memory
+        ctxt = self.memory.sample( 'ctxt')
+        # choose parameter set 
+        beta = self.beta_stab if ctxt else self.beta_vol
+        # construct utility function 
+        u_sa = self.get_U()
+        # pi(a|s) ∝ exp( βU(s,a))
+        f_a1s   = beta * u_sa 
+        self.pi = softmax(  f_a1s, axis=1)
+        # marginal over state 
+        self.P_a = ( self.p_s.T @ self.pi).reshape([-1])
+    
+    def update_Ps( self):
+        # retrieve memory
+        ctxt, state = self.memory.sample( 'ctxt', 'state')
+        # choose parameter set 
+        alpha_s = self.alpha_s_stab if ctxt else self.alpha_s_vol
+        ## Update p_s
+        # δs = It(s) - p_s
+        rpe_s = self.O(state) - self.p_s 
+        # p_s = p_s + α_s * δs
+        self.p_s += alpha_s * rpe_s 
+
+    def update( self):
+        ## Retrieve memory
+        self.update_Ps()
+    
 #==========================
 #        Base Agent
 #==========================
