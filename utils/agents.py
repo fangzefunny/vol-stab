@@ -90,7 +90,7 @@ class Basebrain:
     def pi_comp( self):
         return None 
 
-    def EQ( self, obs):
+    def EQ( self):
         return None 
 
     def get_U( self):
@@ -178,7 +178,7 @@ class RDModel( Basebrain):
                        ( np.log( self.pi + eps_) 
                        - np.log( self.q_a.T + eps_)))
     
-    def EQ( self,):
+    def EQ( self):
         u_sa = self.get_U()
         return np.sum( self.p_s * self.pi * u_sa)
 
