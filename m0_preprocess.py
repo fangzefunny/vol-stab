@@ -99,7 +99,7 @@ def preprocess_rew_con():
             # get data for CON group subject 
             if (dis=='CON') and (rew_pain=='rew'):
                 rew_con_data[ sub_idx] = remake_cols_idx(
-                    pd.read_csv(f'{path}/data/rew_con/exp1/{file}'), sub_idx, dis
+                    pd.read_csv(f'{path}/data/reward_con/exp1/{file}'), sub_idx, dis
                 )  
 
     # obtain all files under the exp2 list
@@ -113,7 +113,7 @@ def preprocess_rew_con():
             dis = 'CON'
             # get data for CON group subject :
             rew_con_data[ sub_idx] = remake_cols_idx(
-                pd.read_csv(f'{path}/data/rew_con/exp1/{file}'), sub_idx, dis
+                pd.read_csv(f'{path}/data/reward_con/exp2/{file}'), sub_idx, dis
             )
             
     ## Save the preprocessed 
