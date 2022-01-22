@@ -391,35 +391,59 @@ def loss_land( data_set):
     plt.xticks( range( len( betas)), np.round(betas,2), fontsize=6.5, rotation=45)
     plt.savefig( f'{path}/figures/model_11_land-{data_set}.png', dpi=200)
 
+def show_rd_curves( outcomes):
 
-def show_RR_params( data_set, outcomes):
+    data = outcomes['RDModel2']
+    groups = [ 'Stab', 'Vol']
+    fig, axs = plt.subplots( 1, 2, figsize=( 6, 3))
+    axs[0].scatter( data['eq-pi_comp-Stab'][1], 
+                 data['eq-pi_comp-Stab'][0],
+                 color=Blue, s=60)
+    axs[0].scatter( data['eq-pi_comp-Vol'][1],
+                 data['eq-pi_comp-Vol'][0],
+                 color=Red, s=60)
+    axs[0].legend( groups)
+    axs[0].set_xlabel('Policy Complexiy', fontsize=16)
+    axs[0].set_ylabel('Expected reward', fontsize=16)
+    d_lst = [ data['eq-pi_comp-Stab'][0], data['eq-pi_comp-Vol'][0]]
+    ax = axs[1]
+    for j, d in enumerate(d_lst):
+            ax.scatter( j*np.ones_like(d), d, s=20, color=colors[j], alpha=.4)
+            ax.errorbar( [j-.1,j,j+.1], [np.nanmean(d)]*3, 
+                        [0,np.nanstd(d)/np.sqrt(len(d)),0], color='k') 
+    ax.set_xticks([0, 1,])
+    ax.set_xlim([-.5, 1.5])
+    ax.set_xticklabels( ['Stable', 'Volatile'], fontsize=16)
+    ax.set_ylabel( 'Avg. EU', fontsize=16)
+    plt.tight_layout()
+    plt.savefig( f'{path}/figures/RD_curves.png', dpi=500) 
 
-    data = outcomes['RRmodel_ctxt']
+def show_RR_params( outcomes):
+
+    data = outcomes['RDModel2']
     params = [ 'alpha_s', 'alpha_a', 'beta']
-    groups = [ 'pa', 'hc']
+    groups = [ 'Stab', 'Vol']
     params_name = [ r'$\alpha_s$', r'$\alpha_a$', r'$\beta$']
-    fig, axs = plt.subplots( 2, 3, figsize=( 9, 2*3))
+    fig, axs = plt.subplots( 2, 2, figsize=( 5, 5))
     
     al = .3
     for i, param in enumerate(params):
-        ax = axs[0, i]
-        d_lst = [ data[f'{param}-hc-block'][0], data[f'{param}-hc-block'][1],
-                  data[f'{param}-pa-block'][0], data[f'{param}-pa-block'][1]]
-        colors = [ Blue, Blue, Red, Red]
+        ax = axs[i//2, i%2]
+        d_lst = [ data[f'{param}-hc-block'][0] + data[f'{param}-pa-block'][0], 
+                  data[f'{param}-hc-block'][1] + data[f'{param}-pa-block'][1]]
+        colors = [ Blue, Red,]
         for j, d in enumerate(d_lst):
             ax.scatter( j*np.ones_like(d), d, s=20, color=colors[j], alpha=al)
             ax.errorbar( [j-.1,j,j+.1], [np.mean(d)]*3, 
                         [0,np.std(d)/np.sqrt(len(d)),0], color='k') 
-        ax.set_xticks([0, 1, 2, 3])
-        ax.set_xticklabels( ['HC-Stab', 'HC-Vol', 'PA-Stab', 'PA-Vol'])
-        ax.set_ylabel( params_name[i])
+        ax.set_xticks([0, 1,])
+        ax.set_xlim([-.5, 1.5])
+        ax.set_xticklabels( ['Stable', 'Volatile'],fontsize=16)
+        ax.set_ylabel( params_name[i],fontsize=16)
+        print( f't test for {param}: {ttest_ind( d_lst[0], d_lst[1])}')
 
-        ax = axs[1, i]
-        mat = 0*np.eye(len(d_lst))
-        for m, d1 in enumerate(d_lst):
-            for k, d2 in enumerate(d_lst):
-                mat[ m, k] = (ttest_ind( d1, d2)[1] <= .05)
-        ax.imshow( mat, cmap='Reds')
+        ax = axs[1, 1]
+        ax.set_axis_off()
 
     fig.tight_layout()
     plt.savefig( f'{path}/figures/param_smary.png', dpi=500) 
@@ -450,11 +474,12 @@ if __name__ == '__main__':
   
     ## STEP1: EXPLORE RAW DATA
     for data_set in data_sets:
-        # fname = f'{path}/analyses/analyses-{data_set}.pkl'
-        # with open( fname, 'rb')as handle:
-        #         outcomes = pickle.load( handle)
-        Tab_show_fit( data_set)
-        #show_RR_params( data_set, outcomes)
+        fname = f'{path}/analyses/analyses-{data_set}.pkl'
+        with open( fname, 'rb')as handle:
+                outcomes = pickle.load( handle)
+        #Tab_show_fit( data_set)
+        show_rd_curves( outcomes)
+        show_RR_params( outcomes)
         # avg_reward( data_set)
         # lr_curve( data_set)
         # vis_model_cmp( data_set)

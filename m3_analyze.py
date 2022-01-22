@@ -15,7 +15,7 @@ path = os.path.dirname(os.path.abspath(__file__))
 parser = argparse.ArgumentParser(description='Test for argparse')
 parser.add_argument('--n_subj', '-f', help='f simulations', type=int, default=20)
 parser.add_argument('--data_set', '-d', help='choose data set', default='rew_data_exp1')
-parser.add_argument('--agent_name', '-n', help='choose agent', default='SM,TM,TMa,SMa')
+parser.add_argument('--agent_name', '-n', help='choose agent', default='RDModel2')
 parser.add_argument('--n_cores', '-c', help='number of CPU cores used for parallel computing', 
                                             type=int, default=0)
 args = parser.parse_args()
@@ -81,9 +81,8 @@ def smry_quant_criteria( pool, outcomes, models, args):
 #     Analyze parameters
 #=============================
 
-eoi = [ 'alpha_s-hc-block', 'alpha_s-pa-block',
-        'alpha_a-hc-block', 'alpha_a-pa-block',
-        'beta-hc-block',    'beta-pa-block',]
+eoi = [ 'alpha_s-hc-block', 'alpha_a-hc-block', 'beta-hc-block', 
+        'alpha_s-pa-block', 'alpha_a-pa-block', 'beta-pa-block',]
 
 def smry_params( outcomes, model_lst, args):
     '''Generate parameters for each model
@@ -120,12 +119,12 @@ def smry_params( outcomes, model_lst, args):
             fname = f'{path}/fits/{model}/params-{args.data_set}-{sub_id}.csv'
             data  = pd.read_csv( fname, index_col=0)
             temp_dict[f'alpha_s-{sub_type}-block'][0].append(data.iloc[ 0, 0])
-            temp_dict[f'alpha_s-{sub_type}-block'][1].append(data.iloc[ 0, 1]) 
-            temp_dict[f'alpha_a-{sub_type}-block'][0].append(data.iloc[ 0, 2])
-            temp_dict[f'alpha_a-{sub_type}-block'][1].append(data.iloc[ 0, 3])
-            temp_dict[f'beta-{sub_type}-block'][0].append(data.iloc[ 0, 4])
+            temp_dict[f'alpha_s-{sub_type}-block'][1].append(data.iloc[ 0, 3]) 
+            temp_dict[f'alpha_a-{sub_type}-block'][0].append(data.iloc[ 0, 1])
+            temp_dict[f'alpha_a-{sub_type}-block'][1].append(data.iloc[ 0, 4])
+            temp_dict[f'beta-{sub_type}-block'][0].append(data.iloc[ 0, 2])
             temp_dict[f'beta-{sub_type}-block'][1].append(data.iloc[ 0, 5])
-            temp_dict[f'eq-{sub_type}-pi_comp'].append()
+            #temp_dict[f'eq-{sub_type}-pi_comp'].append()
         # record the result to the outcomes
         for eff in eoi:
             outcomes[model][eff] = temp_dict[eff] 
@@ -133,19 +132,32 @@ def smry_params( outcomes, model_lst, args):
     return outcomes
 
 
-#=============================
-#     Other analyses
-#=============================
+#==================================
+#     Resource-rational analyses
+#==================================
 
 ## Define a global Effect of interest  
-eoi = [ 'eq-hc-pi_comp',    'eq-hc-pi_comp',]
+eoi_rr = [ 'eq-pi_comp-Stab', 'eq-pi_comp-Vol',]
 
-def get_analyses( data_set, model, sub_idx):
+def get_rr_analyses( data_set, model, sub_idx):
     fname = f'{path}/simulations/{model}/sim_{data_set}-idx{sub_idx}.csv'
-    
-    return Hutter_est( pd.read_csv( fname, index_col=0))
+    data  = pd.read_csv( fname)
+    subj_lst = data.sub_id.unique()
+    crs = [ 'EQ', 'pi_comp']
+    b_types = [ 1, 0]
+    outcomes = []
+    for b in b_types:
+        phi = [[],[]]
+        for i, cr in enumerate(crs):
+            for subj in subj_lst:
+                idx = (data['sub_id'] == subj) \
+                    & (data['b_type'] == b) 
+                cr_val = data[f'{cr}'][idx].mean()
+                phi[i].append(cr_val)
+        outcomes.append(phi)
+    return outcomes
 
-def smry_analyses( pool, outcomes, model_lst, args):
+def smry_rr_analyses( pool, outcomes, model_lst, args):
     '''Generate parameters for each model
     '''
     ## Init the stage
@@ -154,21 +166,21 @@ def smry_analyses( pool, outcomes, model_lst, args):
     ## Loop to summary the feature for each model
     for model in model_lst:
         # check if the model has a record or not
-        if model not in outcomes.keys(): outcomes[model] == dict()
+        if model not in outcomes.keys(): outcomes[model] = dict()
         # start analyzing 
         print( f'Analyzing {model}')
-        res = [ pool.apply_async( get_quant_criteria, 
+        res = [ pool.apply_async( get_rr_analyses, 
                 args=( args.data_set, model, i)) 
                 for i in range(args.n_subj)]
         # unpack results
-        cum_crs = { eff: 0 for eff in eoi}
+        cum_crs = { eff: 0 for eff in eoi_rr}
         for p in res:
             crs = p.get()
-            for eff in eoi:
-                cum_crs[eff] += crs[eff] / args.n_subj
+            cum_crs['eq-pi_comp-Stab'] += np.array(crs[0]) / args.n_subj 
+            cum_crs['eq-pi_comp-Vol']  += np.array(crs[1]) / args.n_subj
         # record the result to the outcomes
-        for eff in eoi:
-            outcomes[eff] = cum_crs[eff] 
+        for eff in eoi_rr:
+            outcomes[model][eff] = cum_crs[eff] 
     
     return outcomes
 
@@ -195,10 +207,10 @@ if __name__ == '__main__':
     outcomes = smry_quant_criteria( pool, outcomes, models, args)
     
     ## STEP2: GET OTHER ANALYSES
-    #outcomes = smry_analyses( pool, outcomes, models, args)
+    outcomes = smry_rr_analyses( pool, outcomes, models, args)
 
     ## STEP3: GET PARAMS SUMMARY
-    #outcomes = smry_params( outcomes, models, args)
+    outcomes = smry_params( outcomes, models, args)
     
     ## STEP3: SAVE THE OUTCOMES
     with open( fname, 'wb')as handle:
