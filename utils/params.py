@@ -21,7 +21,7 @@ def set_hyperparams(args):
     args.agent = eval( args.agent_name)
     args.param_priors = None
 
-    # CogSci
+    ## Cog
     if args.agent_name == 'RDModel':
         args.bnds        = ( ( 0, 1), ( 0, 1), ( 0, 20),)
         args.params_name = [ 'α_s', 'α_a', 'β',]
@@ -49,6 +49,31 @@ def set_hyperparams(args):
         args.params_name = [ 'α_s_stab', 'β_stab',
                              'α_s_vol',  'β_vol',
                              'r']
+
+    ## elife models
+    args.agent = eval( args.agent_name)
+    args.param_priors = None
+    if args.agent_name == 'model1':
+        args.bnds = ( ( 0, 1), ( 0, 1), ( .1, 10.), ( 0, 20))
+        args.params_name = [ 'α_s_stab', 'α_s_vol', 'γ', 'β']
+    elif args.agent_name == 'model2':
+        args.bnds = ( ( 0, 1), ( 0, 1), ( 0, 1), ( 0, 20))
+        args.params_name = [ 'α_s_stab', 'α_s_vol', 'λ', 'β']
+    elif args.agent_name == 'model7':
+        args.bnds = ( ( 0, 1), ( 0, 1), ( 0, 1), ( .1, 10.), 
+                      ( 0, 20))
+        args.params_name = [ 'α_s_stab', 'α_s_vol', 'λ', 'r', 'β']
+    elif args.agent_name == 'model8':
+        args.bnds = ( ( 0, 1),  ( 0, 1), ( 0, 1), ( .1, 10.), 
+                      ( 0, 20.), ( 0, 1))
+        args.params_name = [ 'α_s_stab', 'α_s_vol', 'λ', 'r', 'β', 'ε']
+    elif args.agent_name == 'model11':
+        args.bnds        = ( ( 0, 1), ( 0,  1), ( 0,  20), 
+                             ( 0, 1), ( 0,  1), ( 0,  20), 
+                             ( 0, 1), ( 0,  1), ( 0,  20))
+        args.params_name = [ 'α_s_stab', 'α_s_vol', 'β_stab',
+                             'α_a_stab', 'α_a_vol', 'β_vol',
+                             'λ', 'r', 'β_a']
 
     # basic 
     elif args.agent_name == 'NM':
