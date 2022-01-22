@@ -113,7 +113,7 @@ class Basebrain:
         rpe_s = self.O(state) - self.p_s 
         # p_s = p_s + α_s * δs
         self.p_s += alpha_s * rpe_s 
-
+    
     def update_Pa( self):
         # retrieve memory
         ctxt, act = self.memory.sample( 'ctxt', 'act')
@@ -125,8 +125,167 @@ class Basebrain:
         # p_a = p_a + α_a * δa
         self.q_a += alpha_a * rpe_a 
 
+#=====================
+#     Gagne Agent
+#=====================
+
+class model1( Basebrain):
+
+    def __init__( self, state_dim, act_dim, rng, params=[]):
+        super().__init__( state_dim, act_dim, rng)
+        if len( params):
+            self._load_free_params( params)
+    
+    def _load_free_params( self, params):
+        self.alpha_s_stab = params[0] # learning rate for the state in the stable task 
+        self.alpha_s_vol  = params[1] # learning rate for the state in the volatile task 
+        self.gamma        = params[2] # risk preference
+        self.beta         = params[3] # inverse temperature
+
+    def plan_act( self):
+        # retrieve memory
+        obs = self.memory.sample( 'obs')[0]
+        # unpack observation
+        mag0, mag1 = obs
+        # risk preference
+        pt = self.p_s[ 0, 0] 
+        pt = np.min( [ np.max( [ abs( pt - .5) ** self.gamma * np.sign( pt - .5) 
+                       + .5, 0 ] ), 1])
+        # diferenece in expected value 
+        vt = pt * mag0 - ( 1 - pt) * mag1
+        # softmax action selection
+        pit = 1 / ( 1 + np.exp( -self.beta * vt))
+        # choice probability
+        self.P_a = np.array( [ pit, 1 - pit])
+
+class model2( model1):
+
+    def __init__( self, state_dim, act_dim, rng, params=[]):
+        super().__init__( state_dim, act_dim, rng)
+        if len( params):
+            self._load_free_params( params)
+
+    def _load_free_params(self, params):
+        self.alpha_s_stab = params[0] # learning rate for the state in the stable task 
+        self.alpha_s_vol  = params[1] # learning rate for the state in the volatile task 
+        self.lam          = params[2] # mixture of prob and mag
+        self.beta         = params[3] # inverse temperature
+
+    def plan_act(self):
+        # retrieve memory
+        obs = self.memory.sample( 'obs')[0]
+        # unpack observation
+        mag0, mag1 = obs
+        pt = self.p_s[ 0, 0] 
+        # mixture of probability and magnitude 
+        vt = self.lam * ( pt - ( 1 - pt)) + \
+             ( 1 - self.lam) * ( mag0 - mag1)
+        # softmax action selection
+        pit = 1 / ( 1 + np.exp( -self.beta * vt))
+        # choice probability
+        self.P_a = np.array( [ pit, 1 - pit])
+
+class model7( model2):
+
+    def __init__( self, state_dim, act_dim, rng, params=[]):
+        super().__init__( state_dim, act_dim, rng)
+        if len( params):
+            self._load_free_params( params)
+
+    def _load_free_params(self, params):
+        self.alpha_s_stab = params[0] # learning rate for the state in the stable task 
+        self.alpha_s_vol  = params[1] # learning rate for the state in the volatile task 
+        self.lam          = params[2] # mixture of prob and mag
+        self.r            = params[3] # nonlinearity 
+        self.beta         = params[4] # inverse temperature
+
+    def plan_act(self):
+        # retrieve memory
+        obs = self.memory.sample( 'obs')[0]
+        # unpack observation
+        mag0, mag1 = obs
+        pt = self.p_s[ 0, 0] 
+        # mixture of probability and magnitude 
+        vt = self.lam * (pt - ( 1 - pt)) + ( 1 - self.lam) * \
+              abs( mag0 - mag1) ** self.r * np.sign( mag0 - mag1)
+        # softmax action selection
+        pit = 1 / ( 1 + np.exp( -self.beta * vt))
+        # choice probability
+        self.P_a = np.array( [ pit, 1 - pit])
+
+class model8( model7):
+
+    def __init__( self, state_dim, act_dim, rng, params=[]):
+        super().__init__( state_dim, act_dim, rng)
+        if len( params):
+            self._load_free_params( params)
+
+    def _load_free_params(self, params):
+        self.alpha_s_stab = params[0] # learning rate for the state in the stable task 
+        self.alpha_s_vol  = params[1] # learning rate for the state in the volatile task 
+        self.lam          = params[2] # mixture of prob and mag
+        self.r            = params[3] # nonlinearity 
+        self.beta         = params[4] # inverse temperature
+        self.eps          = params[5] # lapse
+
+    def plan_act(self):
+        # retrieve memory
+        obs = self.memory.sample( 'obs')[0]
+        # unpack observation
+        mag0, mag1 = obs
+        pt = self.p_s[ 0, 0] 
+        # mixture of probability and magnitude 
+        vt = self.lam * (pt - ( 1 - pt)) + ( 1 - self.lam) * \
+              abs( mag0 - mag1) ** self.r * np.sign( mag0 - mag1)
+        # softmax action selection + lapse
+        pit = ( 1 - self.eps) / ( 1 + np.exp( -self.beta * vt)) + self.eps / 2 
+        # choice probability
+        self.P_a = np.array( [ pit, 1 - pit]) 
+
+class model11( model7):
+
+    def __init__( self, state_dim, act_dim, rng, params=[]):
+        super().__init__( state_dim, act_dim, rng)
+        if len( params):
+            self._load_free_params( params)
+
+    def _load_free_params(self, params):
+        # stab
+        self.alpha_s_stab = params[0] # learning rate of p(s) for stab task 
+        self.alpha_a_stab = params[1] # learning rate of q(a) for stab task 
+        self.beta_stab    = params[2] # inverse temperature for stab task 
+        # vol 
+        self.alpha_s_vol  = params[3] # learning rate of p(s) for vol task 
+        self.alpha_a_vol  = params[4] # learning rate of q(a) for vol task 
+        self.beta_vol     = params[5] # inverse temperature for vol task 
+        # general
+        self.lam          = params[6] # mixture of prob and mag
+        self.r            = params[7] # nonlinearity 
+        self.beta_a       = params[8] # inverse temperature for choice kernel
+
+    def update( self):
+        self.update_Ps()
+        self.update_Pa()
+
+    def plan_act(self):
+        # retrieve memory
+        ctxt, obs = self.memory.sample( 'ctxt', 'obs')
+        # unpack observation
+        mag0, mag1 = obs
+        pt = self.p_s[ 0, 0] 
+        # choose parameter set 
+        beta = self.beta_stab if ctxt else self.beta_vol
+        # mixture of probability and magnitude 
+        vt = self.lam * (pt - ( 1 - pt)) + ( 1 - self.lam) * \
+              abs( mag0 - mag1) ** self.r * np.sign( mag0 - mag1)
+        # softmax action selection 
+        pit = 1 / ( 1 + np.exp( - ( beta * vt + 
+                  self.beta_a * ( self.q_a[ 0, 0] - self.q_a[ 1, 0])))) 
+        # choice probability
+        self.P_a = np.array( [ pit, 1 - pit]) 
+
 #==========================
-#       CogSci Agent
+#       Cog Agent
 #==========================
 
 class RDModel( Basebrain):
