@@ -171,7 +171,7 @@ class model2( model1):
         self.lam          = params[2] # mixture of prob and mag
         self.beta         = params[3] # inverse temperature
 
-    def plan_act(self, obs):
+    def plan_act(self):
         # retrieve memory
         obs = self.memory.sample( 'obs')[0]
         # unpack observation
@@ -199,7 +199,7 @@ class model7( model2):
         self.r            = params[3] # nonlinearity 
         self.beta         = params[4] # inverse temperature
 
-    def plan_act(self, obs):
+    def plan_act(self):
         # retrieve memory
         obs = self.memory.sample( 'obs')[0]
         # unpack observation
@@ -228,7 +228,7 @@ class model8( model7):
         self.beta         = params[4] # inverse temperature
         self.eps          = params[5] # lapse
 
-    def plan_act(self, obs):
+    def plan_act(self):
         # retrieve memory
         obs = self.memory.sample( 'obs')[0]
         # unpack observation
@@ -267,7 +267,7 @@ class model11( model7):
         self.update_Ps()
         self.update_Pa()
 
-    def plan_act(self, obs):
+    def plan_act(self):
         # retrieve memory
         ctxt, obs = self.memory.sample( 'ctxt', 'obs')
         # unpack observation
