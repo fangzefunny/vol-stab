@@ -163,6 +163,7 @@ class subj:
             if agent.pi is not None: 
                 pred_data['pi_0'][t] = agent.pi[ 0, 0]
                 pred_data['pi_1'][t] = agent.pi[ 1, 0]
+            if agent.qa is not None: pred_data['q_a'][t] = agent.q_a[ 0, 0]
             if agent.pi_comp() is not None: pred_data['pi_comp'][t] = agent.pi_comp()
             if agent.EQ() is not None: pred_data['EQ'][t] = agent.EQ()
 
