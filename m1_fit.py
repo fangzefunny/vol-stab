@@ -18,7 +18,7 @@ path = os.path.dirname(os.path.abspath(__file__))
 ## pass the hyperparams
 parser = argparse.ArgumentParser(description='Test for argparse')
 parser.add_argument('--fit_num', '-f', help='fit times', type = int, default=1)
-parser.add_argument('--data_set', '-d', help='which_data', type = str, default='rew_data_exp1')
+parser.add_argument('--data_set', '-d', help='which_data', type = str, default='rew_con')
 parser.add_argument('--loss_fn', '-l', help='fitting methods', type = str, default='mle')
 parser.add_argument('--group', '-g', help='fit to ind or fit to the whole group', type=str, default='ind')
 parser.add_argument('--agent_name', '-n', help='choose agent', default='RDModel2')
@@ -29,14 +29,15 @@ parser.add_argument('--seed', '-s', help='random seed', type=int, default=2021)
 args = parser.parse_args()
 args.path = path
 
-# create the folders for this folder
+# create the folders if not existed
 if not os.path.exists(f'{path}/fits'):
     os.mkdir(f'{path}/fits')
 if not os.path.exists(f'{path}/fits/{args.agent_name}'):
     os.mkdir(f'{path}/fits/{args.agent_name}')
 
 def fit_parallel( data, pool, model, verbose, args):
-
+    '''A worker in the parallel computing pool 
+    '''
     ## fix random seed 
     seed = args.seed
     n_params = len( args.bnds)
@@ -104,7 +105,8 @@ def fit_parallel( data, pool, model, verbose, args):
     return fit_res 
 
 def fit( data, args):
-
+    '''Find the optimal free parameter for each model 
+    '''
     ## Define the RL model 
     model = subj( args.agent)
     
@@ -162,7 +164,7 @@ def summary( data, args):
 if __name__ == '__main__':
 
     ## STEP 0: LOAD DATA
-    with open(f'{path}/data/{args.data_set}.pkl', 'rb') as handle:
+    with open(f'{path}/data/{args.data_set}_data.pkl', 'rb') as handle:
         data = pickle.load( handle)
 
     ## STEP 1: HYPERPARAMETER TUNING
@@ -170,5 +172,5 @@ if __name__ == '__main__':
             
     ## STEP 2: FIT
     fit( data, args)
+    # summary the mean and std for parameters 
     if args.group == 'ind': summary( data, args)
-    

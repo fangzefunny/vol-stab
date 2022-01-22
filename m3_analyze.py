@@ -14,7 +14,7 @@ path = os.path.dirname(os.path.abspath(__file__))
 ## pass the hyperparams
 parser = argparse.ArgumentParser(description='Test for argparse')
 parser.add_argument('--n_subj', '-f', help='f simulations', type=int, default=20)
-parser.add_argument('--data_set', '-d', help='choose data set', default='rew_data_exp1')
+parser.add_argument('--data_set', '-d', help='choose data set', default='rew_con')
 parser.add_argument('--agent_name', '-n', help='choose agent', default='RDModel2')
 parser.add_argument('--n_cores', '-c', help='number of CPU cores used for parallel computing', 
                                             type=int, default=0)
@@ -131,7 +131,6 @@ def smry_params( outcomes, model_lst, args):
     
     return outcomes
 
-
 #==================================
 #     Resource-rational analyses
 #==================================
@@ -206,12 +205,12 @@ if __name__ == '__main__':
     ## STEP1: GET THE QUANTITATIVE METRICS
     outcomes = smry_quant_criteria( pool, outcomes, models, args)
     
-    ## STEP2: GET OTHER ANALYSES
+    ## STEP2: GET RATE DISTORTION ANALYSES
     outcomes = smry_rr_analyses( pool, outcomes, models, args)
 
     ## STEP3: GET PARAMS SUMMARY
     outcomes = smry_params( outcomes, models, args)
     
-    ## STEP3: SAVE THE OUTCOMES
+    ## STEP4: SAVE THE OUTCOMES
     with open( fname, 'wb')as handle:
         pickle.dump( outcomes, handle)
