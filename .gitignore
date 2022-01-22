@@ -14,6 +14,8 @@ tables/
 figures/
 fits/
 backup/
+simulations/
+analyses/
 
 # ignore some debug files
 debug.py 
