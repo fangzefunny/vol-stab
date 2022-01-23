@@ -52,6 +52,7 @@ class Basebrain:
         self.p_s   = np.ones( [ self.nS, 1]) / self.nS 
         self.q_a   = np.ones( [ self.nA, 1]) / self.nA 
         self.P_a   = np.ones( [ self.nA,]) / self.nA
+        self.pi    = None 
 
     def _init_memory( self):
         self.memory = simpleBuffer()
