@@ -2,7 +2,7 @@ import argparse
 import os 
 import pickle
 import datetime 
-
+import numpy as np
 import multiprocessing as mp
 import pandas as pd
 
