@@ -128,7 +128,7 @@ class subj:
         
         ## init a blank dataframe to store simulation
         col = [ 'action', 'act_acc', 'rew', 'p_s', 
-                'pi_0', 'pi_1', 'nll', 
+                'pi_0', 'pi_1', 'nll', 'q_a',
                 'pi_comp', 'psi_comp', 'EQ']
         init_mat = np.zeros([ data.shape[0], len(col)]) + np.nan
         pred_data = pd.DataFrame( init_mat, columns=col)  
