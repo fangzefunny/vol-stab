@@ -50,7 +50,7 @@ def smry_quant_criteria( pool, outcomes, models, args):
         nll, aic, bic 
     '''
     ## Init the storage
-    fname = f'{path}/data/{args.data_set}.pkl'
+    fname = f'{path}/data/{args.data_set}_data.pkl'
     with open( fname, 'rb') as handle:
         data = pickle.load( handle)
     subj_lst = list( data.keys())
@@ -81,30 +81,14 @@ def smry_quant_criteria( pool, outcomes, models, args):
 #     Analyze parameters
 #=============================
 
-eoi = [ 'alpha_s-hc-block', 'alpha_a-hc-block', 'beta-hc-block', 
-        'alpha_s-pa-block', 'alpha_a-pa-block', 'beta-pa-block',]
+eoi = [ 'alpha_s-block', 'alpha_a-block', 'beta-block', 
+        'alpha_s-block', 'alpha_a-block', 'beta-block',]
 
 def smry_params( outcomes, model_lst, args):
     '''Generate parameters for each model
     '''
-    # get all participants' id
-    fname = f'{path}/data/participant_table_exp1.csv'
-    data  = pd.read_csv( fname, index_col=0)
-    data.reset_index(drop=True,inplace=True)
-    group = dict()
-    sub_ind, group['pa'], group['hc'] = [], [], []
-    for i in range(data.shape[0]):
-        sub_idx = data.loc[ i, 'MID']
-        sub_type = data.loc[ i, 'group']
-        if sub_idx not in sub_ind: 
-            sub_ind.append(sub_idx)
-            if sub_type in [ 'MDD', 'GAD']:
-                group['pa'].append( sub_idx)
-            else:
-                group['hc'].append( sub_idx)
-    
     # get analyzable id 
-    with open(f'{path}/data/{args.data_set}.pkl', 'rb') as handle:
+    with open(f'{path}/data/{args.data_set}_data.pkl', 'rb') as handle:
         sub_ind = list(pickle.load( handle).keys())
     
     ## Loop to summary the feature for each model
@@ -115,15 +99,14 @@ def smry_params( outcomes, model_lst, args):
         temp_dict = { eff: [[],[]] for eff in eoi}
         print( f'Analyzing {model}')
         for sub_id in sub_ind:
-            sub_type = 'pa' if sub_id in group['pa'] else 'hc'
             fname = f'{path}/fits/{model}/params-{args.data_set}-{sub_id}.csv'
             data  = pd.read_csv( fname, index_col=0)
-            temp_dict[f'alpha_s-{sub_type}-block'][0].append(data.iloc[ 0, 0])
-            temp_dict[f'alpha_s-{sub_type}-block'][1].append(data.iloc[ 0, 3]) 
-            temp_dict[f'alpha_a-{sub_type}-block'][0].append(data.iloc[ 0, 1])
-            temp_dict[f'alpha_a-{sub_type}-block'][1].append(data.iloc[ 0, 4])
-            temp_dict[f'beta-{sub_type}-block'][0].append(data.iloc[ 0, 2])
-            temp_dict[f'beta-{sub_type}-block'][1].append(data.iloc[ 0, 5])
+            temp_dict[f'alpha_s-block'][0].append(data.iloc[ 0, 0])
+            temp_dict[f'alpha_s-block'][1].append(data.iloc[ 0, 3]) 
+            temp_dict[f'alpha_a-block'][0].append(data.iloc[ 0, 1])
+            temp_dict[f'alpha_a-block'][1].append(data.iloc[ 0, 4])
+            temp_dict[f'beta-block'][0].append(data.iloc[ 0, 2])
+            temp_dict[f'beta-block'][1].append(data.iloc[ 0, 5])
             #temp_dict[f'eq-{sub_type}-pi_comp'].append()
         # record the result to the outcomes
         for eff in eoi:

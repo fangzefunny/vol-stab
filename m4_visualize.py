@@ -26,18 +26,24 @@ def show_rd_curves( outcomes):
     '''
     data = outcomes['RDModel2']
     groups = [ 'Stab', 'Vol']
-    fig, axs = plt.subplots( 1, 2, figsize=( 6, 3))
-    axs[0].scatter( data['eq-pi_comp-Stab'][1], 
+    fig, axs = plt.subplots( 2, 2, figsize=( 6, 6))
+    ## Rate distortion curve 
+    ax = axs[ 0, 0]
+    ax.scatter( data['eq-pi_comp-Stab'][1], 
                  data['eq-pi_comp-Stab'][0],
                  color=Blue, s=60)
-    axs[0].scatter( data['eq-pi_comp-Vol'][1],
+    ax.scatter( data['eq-pi_comp-Vol'][1],
                  data['eq-pi_comp-Vol'][0],
                  color=Red, s=60)
-    axs[0].legend( groups)
-    axs[0].set_xlabel('Policy Complexiy', fontsize=16)
-    axs[0].set_ylabel('Expected reward', fontsize=16)
-    d_lst = [ data['eq-pi_comp-Stab'][0], data['eq-pi_comp-Vol'][0]]
-    ax = axs[1]
+    ax.legend( groups)
+    ax.set_xlabel('Policy Complexiy', fontsize=16)
+    ax.set_ylabel('Expected reward', fontsize=16)
+    ## blank 
+    ax = axs[ 0, 1]
+    ax.set_axis_off()
+    ## Policy Complexity
+    d_lst = [ data['eq-pi_comp-Stab'][1], data['eq-pi_comp-Vol'][1]]
+    ax = axs[ 1, 0]
     for j, d in enumerate(d_lst):
             ax.scatter( j*np.ones_like(d), d, s=20, color=colors[j], alpha=.4)
             ax.errorbar( [j-.1,j,j+.1], [np.nanmean(d)]*3, 
@@ -45,7 +51,18 @@ def show_rd_curves( outcomes):
     ax.set_xticks([0, 1,])
     ax.set_xlim([-.5, 1.5])
     ax.set_xticklabels( ['Stable', 'Volatile'], fontsize=16)
-    ax.set_ylabel( 'Avg. EU', fontsize=16)
+    ax.set_ylabel( 'Avg. policy complexity', fontsize=16)
+    ## Policy Complexity
+    d_lst = [ data['eq-pi_comp-Stab'][0], data['eq-pi_comp-Vol'][0]]
+    ax = axs[ 1, 1]
+    for j, d in enumerate(d_lst):
+            ax.scatter( j*np.ones_like(d), d, s=20, color=colors[j], alpha=.4)
+            ax.errorbar( [j-.1,j,j+.1], [np.nanmean(d)]*3, 
+                        [0,np.nanstd(d)/np.sqrt(len(d)),0], color='k') 
+    ax.set_xticks([0, 1,])
+    ax.set_xlim([-.5, 1.5])
+    ax.set_xticklabels( ['Stable', 'Volatile'], fontsize=16)
+    ax.set_ylabel( 'Avg. expected reward', fontsize=16)
     plt.tight_layout()
     plt.savefig( f'{path}/figures/RD_curves.png', dpi=500) 
 
@@ -61,8 +78,7 @@ def show_RR_params( outcomes):
     al = .3
     for i, param in enumerate(params):
         ax = axs[i//2, i%2]
-        d_lst = [ data[f'{param}-hc-block'][0] + data[f'{param}-pa-block'][0], 
-                  data[f'{param}-hc-block'][1] + data[f'{param}-pa-block'][1]]
+        d_lst = [ data[f'{param}-block'][0], data[f'{param}-block'][1]]
         colors = [ Blue, Red,]
         for j, d in enumerate(d_lst):
             ax.scatter( j*np.ones_like(d), d, s=20, color=colors[j], alpha=al)
