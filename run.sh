@@ -4,7 +4,7 @@
 python m0_preprocess.py
 
 ## declare all models and all data sets
-declare data_sets=("rew_con")
+declare data_sets=("exp1_all" "exp_rew")
 declare groups=("ind")
 declare models=("RDModel2" "SMModel" "model11")
 
