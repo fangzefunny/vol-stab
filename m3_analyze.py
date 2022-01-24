@@ -38,10 +38,7 @@ def get_pool( args):
 #=============================
 
 def get_quant_criteria( data_set, model, sub_idx):
-    try:
-        fname = f'{path}/fits/{args.agent_name}/params-rew_con-{sub_idx}.csv'  
-    except:
-        fname = f'{path}/fits/{args.agent_name}/params-rew_data_exp1-{sub_idx}.csv'  
+    fname = f'{path}/fits/{model}/params-{data_set}-{sub_idx}.csv'   
     record = pd.read_csv( fname, index_col=0)
     nll    = record.iloc[ 0, -3]
     aic    = record.iloc[ 0, -2]
@@ -102,10 +99,7 @@ def smry_params( outcomes, model_lst, args):
         temp_dict = { eff: [[],[]] for eff in eoi}
         print( f'Analyzing {model}')
         for sub_id in sub_ind:
-            try:
-                fname = f'{path}/fits/{args.agent_name}/params-rew_con-{sub_id}.csv'  
-            except:
-                fname = f'{path}/fits/{args.agent_name}/params-rew_data_exp1-{sub_id}.csv'  
+            fname = f'{path}/fits/{model}/params-{args.data_set}-{sub_id}.csv'  
             data  = pd.read_csv( fname, index_col=0)
             temp_dict[f'alpha_s-block'][0].append(data.iloc[ 0, 0])
             temp_dict[f'alpha_s-block'][1].append(data.iloc[ 0, 3]) 
@@ -125,12 +119,13 @@ def smry_params( outcomes, model_lst, args):
 #==================================
 
 ## Define a global Effect of interest  
-eoi_rr = [ 'eq-pi_comp-Stab', 'eq-pi_comp-Vol',]
+eoi_rr = [ 'eq-pi_comp-Stab-reg', 'eq-pi_comp-Vol-reg',
+           'eq-pi_comp-Stab-check', 'eq-pi_comp-Vol-check',]
 
-def get_rr_analyses( data_set, model, sub_idx):
-    fname = f'{path}/simulations/{model}/sim_{data_set}-idx{sub_idx}.csv'
+def get_rr_analyses( data_set, model, mode):
+    fname = f'{path}/simulations/{model}/sim_{data_set}-mode={mode}.csv'
     data  = pd.read_csv( fname)
-    subj_lst = data.sub_id.unique()
+    subj_lst = data['sub_id'].unique()
     crs = [ 'EQ', 'pi_comp']
     b_types = [ 1, 0]
     outcomes = []
@@ -145,11 +140,9 @@ def get_rr_analyses( data_set, model, sub_idx):
         outcomes.append(phi)
     return outcomes
 
-def smry_rr_analyses( pool, outcomes, model_lst, args):
+def smry_rr_analyses( outcomes, model_lst, args):
     '''Generate parameters for each model
     '''
-    ## Init the stage
-    outcomes = dict()
 
     ## Loop to summary the feature for each model
     for model in model_lst:
@@ -157,15 +150,11 @@ def smry_rr_analyses( pool, outcomes, model_lst, args):
         if model not in outcomes.keys(): outcomes[model] = dict()
         # start analyzing 
         print( f'Analyzing {model}')
-        res = [ pool.apply_async( get_rr_analyses, 
-                args=( args.data_set, model, i)) 
-                for i in range(args.n_subj)]
-        # unpack results
         cum_crs = { eff: 0 for eff in eoi_rr}
-        for p in res:
-            crs = p.get()
-            cum_crs['eq-pi_comp-Stab'] += np.array(crs[0]) / args.n_subj 
-            cum_crs['eq-pi_comp-Vol']  += np.array(crs[1]) / args.n_subj
+        for mode in [ 'reg', 'check']:
+            crs = get_rr_analyses( args.data_set, model, mode)
+            cum_crs[f'eq-pi_comp-Stab-{mode}'] = np.array(crs[0])
+            cum_crs[f'eq-pi_comp-Vol-{mode}']  = np.array(crs[1])
         # record the result to the outcomes
         for eff in eoi_rr:
             outcomes[model][eff] = cum_crs[eff] 
@@ -195,7 +184,7 @@ if __name__ == '__main__':
     outcomes = smry_quant_criteria( pool, outcomes, models, args)
     
     ## STEP2: GET RATE DISTORTION ANALYSES
-    outcomes = smry_rr_analyses( pool, outcomes, models, args)
+    outcomes = smry_rr_analyses( outcomes, models, args)
 
     ## STEP3: GET PARAMS SUMMARY
     outcomes = smry_params( outcomes, models, args)
