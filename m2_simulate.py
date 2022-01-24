@@ -54,8 +54,8 @@ def simulate( data, sub_idx, args, seed):
             fname = f'{path}/fits/params-{args.data_set}-{args.agent_name}-avg.csv'
         df = pd.read_csv( fname, index_col=0)
         params = df.iloc[0, 0:n_params].values
-        beta_stab_id = list(df.columns).index('α_a_stab')
-        beta_vol_id  = list(df.columns).index('α_a_vol')
+        beta_stab_id = list(df.columns).index('β_stab')
+        beta_vol_id  = list(df.columns).index('β_vol')
         params[beta_stab_id] = params[beta_vol_id]
     else:
         raise ValueError("Choose the correct simulation mode")
