@@ -17,7 +17,7 @@ path = os.path.dirname(os.path.abspath(__file__))
 parser = argparse.ArgumentParser(description='Test for argparse')
 parser.add_argument('--agent_name', '-n', help='choose agent', default='RDModel2')
 parser.add_argument('--data_set', '-d', help='choose data set', default='rew_con')
-parser.add_argument('--n_sim', '-f', help='f simulations', type=int, default=20)
+parser.add_argument('--n_sim', '-f', help='f simulations', type=int, default=1)
 parser.add_argument('--group', '-g', help='choose agent', default='ind')
 parser.add_argument('--seed', '-s', help='random seed', type=int, default=120)
 parser.add_argument('--n_cores', '-c', help='number of CPU cores used for parallel computing', 
@@ -42,7 +42,10 @@ def simulate( data, args, seed, in_params=[]):
 
         if len( in_params) ==0:
             if args.group == 'ind': 
-                fname = f'{path}/fits/{args.agent_name}/params-{args.data_set}-{sub_idx}.csv'      
+                try:
+                    fname = f'{path}/fits/{args.agent_name}/params-rew_con-{sub_idx}.csv'  
+                except:
+                    fname = f'{path}/fits/{args.agent_name}/params-rew_data_exp1-{sub_idx}.csv'    
             elif args.group == 'avg':
                 fname = f'{path}/fits/params-{args.data_set}-{args.agent_name}-avg.csv'      
             params = pd.read_csv( fname, index_col=0).iloc[0, 0:n_params].values
@@ -55,7 +58,7 @@ def simulate( data, args, seed, in_params=[]):
         if i == 0:
             sim_data = sim_sample 
         else:
-            sim_data = pd.concat( [ sim_data, sim_sample], axis=0, sort=True)
+            sim_data = pd.concat( [ sim_data, sim_sample], axis=0, ignore_index=True)
 
     return sim_data
 
@@ -89,7 +92,7 @@ if __name__ == '__main__':
     args = set_hyperparams(args)  
 
     ## STEP 1: LOAD DATA
-    with open(f'{path}/data/{args.data_set}_data.pkl', 'rb') as handle:
+    with open(f'{path}/data/{args.data_set}.pkl', 'rb') as handle:
         data = pickle.load( handle)
 
     ## STEP 2: SYNTHESIZE DATA

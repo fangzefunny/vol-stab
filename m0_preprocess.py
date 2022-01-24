@@ -75,7 +75,13 @@ def remake_cols_idx( data, sub_id, dis_group):
     
     return data 
 
-def preprocess_rew_con():
+def preprocess( mode='rew_con'):
+    '''Data prerprocessing  
+
+        'rew_con': exp1+exp2 control group 
+        'exp1_all': exp1 all patient
+        'exp1_rew': exp1 rew 
+    '''
 
     ## Create the processed data storage
     rew_con_data = dict()
@@ -96,32 +102,44 @@ def preprocess_rew_con():
                 dis = pat_dict[sub_idx]
             except:
                 dis = 'CON'
-            # get data for CON group subject 
-            if (dis=='CON') and (rew_pain=='rew'):
+            # decide the data extraction rule 
+            if (mode == 'rew_con') or (mode=='exp1_rew'):
+                cond = (dis=='CON') and (rew_pain=='rew')
+            else:
+                cond = (rew_pain=='rew')
+            # get data for CON group subject     
+            if cond:
                 rew_con_data[ sub_idx] = remake_cols_idx(
                     pd.read_csv(f'{path}/data/reward_con/exp1/{file}'), sub_idx, dis
                 )  
     n_exp1 = len( rew_con_data.keys())
 
-    # obtain all files under the exp2 list
-    files = os.listdir( f'{path}/data/reward_con/exp2/')
-    for file in files:
-        # skip the folder 
-        if not os.path.isdir( file): 
-            # get the subid 
-            rew_pain, sub_idx = file.split('_')[3], file.split('_')[4]  
-            # get disease group
-            dis = 'CON'
-            # get data for CON group subject :
-            rew_con_data[ sub_idx] = remake_cols_idx(
-                pd.read_csv(f'{path}/data/reward_con/exp2/{file}'), sub_idx, dis
-            )
-    n_exp2 = len( rew_con_data.keys()) - n_exp1
+    ## Continue if mode is rew_con
+    if mode is not 'rew_con':
+        print( f'#subj in {mode}: {n_exp1}')
+        with open( f'{path}/data/rew_con.pkl', 'wb')as handle:
+            pickle.dump( rew_con_data, handle)
+
+    else: 
+        # obtain all files under the exp2 list
+        files = os.listdir( f'{path}/data/reward_con/exp2/')
+        for file in files:
+            # skip the folder 
+            if not os.path.isdir( file): 
+                # get the subid 
+                rew_pain, sub_idx = file.split('_')[3], file.split('_')[4]  
+                # get disease group
+                dis = 'CON'
+                # get data for CON group subject :
+                rew_con_data[ sub_idx] = remake_cols_idx(
+                    pd.read_csv(f'{path}/data/reward_con/exp2/{file}'), sub_idx, dis
+                )
+        n_exp2 = len( rew_con_data.keys()) - n_exp1
             
-    ## Save the preprocessed 
-    with open( f'{path}/data/rew_con_data.pkl', 'wb')as handle:
-        pickle.dump( rew_con_data, handle)
-    print( f'#subj in exp1: {n_exp1}\n#subj in exp2: {n_exp2}')
+        ## Save the preprocessed 
+        with open( f'{path}/data/rew_con.pkl', 'wb')as handle:
+            pickle.dump( rew_con_data, handle)
+        print( f'#subj in exp1: {n_exp1}\n#subj in exp2: {n_exp2}')
 
 def get_rdcurves( data_set):
     
@@ -180,6 +198,8 @@ def get_rdcurves( data_set):
 if __name__ == '__main__':
 
     ## STEP0: PREPROCESS EXP1 DATA 
-    preprocess_rew_con() 
+    modes = [ 'rew_con', 'exp1_all', 'exp1_rew']
+    for m in modes:
+        preprocess(m) 
 
 

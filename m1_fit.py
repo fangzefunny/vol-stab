@@ -164,7 +164,7 @@ def summary( data, args):
 if __name__ == '__main__':
 
     ## STEP 0: LOAD DATA
-    with open(f'{path}/data/{args.data_set}_data.pkl', 'rb') as handle:
+    with open(f'{path}/data/{args.data_set}.pkl', 'rb') as handle:
         data = pickle.load( handle)
 
     ## STEP 1: HYPERPARAMETER TUNING

@@ -38,7 +38,10 @@ def get_pool( args):
 #=============================
 
 def get_quant_criteria( data_set, model, sub_idx):
-    fname = f'{path}/fits/{model}/params-{data_set}-{sub_idx}.csv'
+    try:
+        fname = f'{path}/fits/{args.agent_name}/params-rew_con-{sub_idx}.csv'  
+    except:
+        fname = f'{path}/fits/{args.agent_name}/params-rew_data_exp1-{sub_idx}.csv'  
     record = pd.read_csv( fname, index_col=0)
     nll    = record.iloc[ 0, -3]
     aic    = record.iloc[ 0, -2]
@@ -50,7 +53,7 @@ def smry_quant_criteria( pool, outcomes, models, args):
         nll, aic, bic 
     '''
     ## Init the storage
-    fname = f'{path}/data/{args.data_set}_data.pkl'
+    fname = f'{path}/data/{args.data_set}.pkl'
     with open( fname, 'rb') as handle:
         data = pickle.load( handle)
     subj_lst = list( data.keys())
@@ -88,7 +91,7 @@ def smry_params( outcomes, model_lst, args):
     '''Generate parameters for each model
     '''
     # get analyzable id 
-    with open(f'{path}/data/{args.data_set}_data.pkl', 'rb') as handle:
+    with open(f'{path}/data/{args.data_set}.pkl', 'rb') as handle:
         sub_ind = list(pickle.load( handle).keys())
     
     ## Loop to summary the feature for each model
@@ -99,7 +102,10 @@ def smry_params( outcomes, model_lst, args):
         temp_dict = { eff: [[],[]] for eff in eoi}
         print( f'Analyzing {model}')
         for sub_id in sub_ind:
-            fname = f'{path}/fits/{model}/params-{args.data_set}-{sub_id}.csv'
+            try:
+                fname = f'{path}/fits/{args.agent_name}/params-rew_con-{sub_id}.csv'  
+            except:
+                fname = f'{path}/fits/{args.agent_name}/params-rew_data_exp1-{sub_id}.csv'  
             data  = pd.read_csv( fname, index_col=0)
             temp_dict[f'alpha_s-block'][0].append(data.iloc[ 0, 0])
             temp_dict[f'alpha_s-block'][1].append(data.iloc[ 0, 3]) 

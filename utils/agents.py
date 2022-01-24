@@ -7,6 +7,9 @@ from utils.rate_dist import RD, I
 eps_ = 1e-12
 max_ = 1e+10
 
+def MI( p_s, pi, q_a):
+    return np.sum( p_s * pi * ( np.log( pi + eps_) - np.log( q_a.T + eps_)))
+
 #==========================
 #       Memory Buffer
 #==========================
