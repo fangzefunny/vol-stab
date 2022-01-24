@@ -69,7 +69,7 @@ def show_rd_curves( outcomes, mode):
     ax.set_ylabel( 'Avg. expected reward', fontsize=16)
     print( f'{mode} expected reward ttest: {ttest_ind( d_lst[0], d_lst[1])}')
     plt.tight_layout()
-    plt.savefig( f'{path}/figures/RD_curves-mode={mode}.png', dpi=500) 
+    
 
 def show_RR_params( outcomes):
     '''Show the parameters summary 
@@ -99,16 +99,21 @@ def show_RR_params( outcomes):
         ax.set_axis_off()
 
     fig.tight_layout()
-    plt.savefig( f'{path}/figures/param_smary.png', dpi=500) 
+   
 
 if __name__ == '__main__':
 
     ## STEP1: EXPLORE RAW DATA
     
     ## STEP1: MODEL-BASED ANALYSIS
-    fname = f'{path}/analyses/analyses-rew_con.pkl'
-    with open( fname, 'rb')as handle:
-            outcomes = pickle.load( handle)
-    show_rd_curves( outcomes, 'reg')
-    show_rd_curves( outcomes, 'check')
-    show_RR_params( outcomes)
+    datasets = ['exp1_rew']
+    for dataset in datasets:
+        fname = f'{path}/analyses/analyses-{dataset}.pkl'
+        with open( fname, 'rb')as handle:
+                outcomes = pickle.load( handle)
+        show_rd_curves( outcomes, 'reg')
+        plt.savefig( f'{path}/figures/RD_curves-{dataset}-mode=reg.png', dpi=500) 
+        show_rd_curves( outcomes, 'check')
+        plt.savefig( f'{path}/figures/RD_curves-{dataset}-mode=check.png', dpi=500) 
+        show_RR_params( outcomes)
+        plt.savefig( f'{path}/figures/param_smary-{dataset}.png', dpi=500) 
