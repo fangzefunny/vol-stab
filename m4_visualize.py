@@ -26,7 +26,7 @@ dpi = 250
 
 def val_fit( outcomes, model):
     data = outcomes[model]
-    fig, axs = plt.subplots( 1, 2, figsize=( 5, 2.5))
+    fig, axs = plt.subplots( 1, 2, figsize=( 5, 2))
     d_lst = [data[f'human-model-Stab'][0], data[f'human-model-Vol'][0]]
     ax = axs[0]
     for j, d in enumerate(d_lst):
@@ -104,7 +104,7 @@ def show_RR_params( outcomes, model):
     params = [ 'alpha_s', 'alpha_a', 'beta']
     groups = [ 'Stab', 'Vol']
     params_name = [ r'$\alpha_s$', r'$\alpha_a$', r'$\beta$']
-    fig, axs = plt.subplots( 2, 2, figsize=( 5, 5))
+    fig, axs = plt.subplots( 2, 2, figsize=( 5, 4))
     
     al = .3
     for i, param in enumerate(params):
