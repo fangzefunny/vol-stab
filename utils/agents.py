@@ -364,7 +364,7 @@ class RDModel2( RDModel):
 
     def plan_act(self):
         # retrieve memory
-        ctxt = self.memory.sample( 'ctxt')
+        ctxt = self.memory.sample( 'ctxt')[0]
         # choose parameter set 
         beta = self.beta_stab if ctxt else self.beta_vol
         # construct utility function 
@@ -423,7 +423,7 @@ class RDModel3( RDModel2):
 
     def plan_act(self):
         # retrieve memory
-        ctxt = self.memory.sample( 'ctxt')
+        ctxt = self.memory.sample( 'ctxt')[0]
         # choose parameter set 
         beta = self.beta_stab if ctxt else self.beta_vol
         # construct utility function 
@@ -451,7 +451,7 @@ class SMModel( Basebrain):
 
     def plan_act(self):
         # retrieve memory
-        ctxt = self.memory.sample( 'ctxt')
+        ctxt = self.memory.sample( 'ctxt')[0]
         # choose parameter set 
         beta = self.beta_stab if ctxt else self.beta_vol
         # construct utility function 
@@ -496,7 +496,7 @@ class SMModel2( SMModel):
 
     def plan_act(self):
         # retrieve memory
-        ctxt = self.memory.sample( 'ctxt')
+        ctxt = self.memory.sample( 'ctxt')[0]
         # choose parameter set 
         beta = self.beta_stab if ctxt else self.beta_vol
         # construct utility function 
@@ -578,7 +578,7 @@ class TM( Basebrain):
     
     def plan_act(self,):
         # retrieve memory
-        ctxt = self.memory.sample( 'ctxt')
+        ctxt = self.memory.sample( 'ctxt')[0]
         # choose parameter set 
         beta = 1 / self.tau_stab if ctxt else 1 / self.tau_vol
         # construct utility function 
@@ -608,7 +608,7 @@ class TMa( Basebrain):
 
     def plan_act(self,):
         # retrieve memory
-        ctxt = self.memory.sample( 'ctxt')
+        ctxt = self.memory.sample( 'ctxt')[0]
         # choose parameter set 
         beta = 1 / self.tau_stab if ctxt else 1 / self.tau_vol
         # construct utility function 
@@ -650,7 +650,7 @@ class SM( Basebrain):
 
     def update_tau( self):
         # retrieve memory
-        ctxt = self.memory.sample( 'ctxt')
+        ctxt = self.memory.sample( 'ctxt')[0]
         # choose parameter set 
         alpha_t = self.alpha_t_stab if ctxt else self.alpha_t_vol
         p_a = self.pi.T @ self.p_s
