@@ -42,10 +42,7 @@ def simulate( data, args, seed, in_params=[]):
 
         if len( in_params) ==0:
             if args.group == 'ind': 
-                try:
-                    fname = f'{path}/fits/{args.agent_name}/params-rew_con-{sub_idx}.csv'  
-                except:
-                    fname = f'{path}/fits/{args.agent_name}/params-rew_data_exp1-{sub_idx}.csv'    
+                fname = f'{path}/fits/{args.agent_name}/params-{args.data_set}-{sub_idx}.csv'    
             elif args.group == 'avg':
                 fname = f'{path}/fits/params-{args.data_set}-{args.agent_name}-avg.csv'      
             params = pd.read_csv( fname, index_col=0).iloc[0, 0:n_params].values
