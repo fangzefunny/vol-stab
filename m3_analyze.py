@@ -15,7 +15,7 @@ path = os.path.dirname(os.path.abspath(__file__))
 parser = argparse.ArgumentParser(description='Test for argparse')
 parser.add_argument('--n_subj', '-f', help='f simulations', type=int, default=1)
 parser.add_argument('--data_set', '-d', help='choose data set', default='rew_con')
-parser.add_argument('--agent_name', '-n', help='choose agent', default='RDModel2')
+parser.add_argument('--agent_name', '-n', help='choose agent', default='model11')
 parser.add_argument('--n_cores', '-c', help='number of CPU cores used for parallel computing', 
                                             type=int, default=0)
 args = parser.parse_args()
@@ -32,6 +32,42 @@ def get_pool( args):
     n_cores = args.n_cores if args.n_cores else int( mp.cpu_count()) 
     print( f'Using {n_cores} parallel CPU cores')
     return mp.Pool( n_cores) 
+
+#=============================
+#      raw data analysis 
+#=============================
+
+def get_raw_analyses( model):
+    fname = f'{path}/simulations/{model}/sim_{args.data_set}-mode=reg.csv'
+    data  = pd.read_csv( fname)
+    subj_lst = data['sub_id'].unique()
+    crs = [ 'rew', 'rew_hat']
+    b_types = [ 1, 0]
+    outcomes = []
+    for b in b_types:
+        phi = [[],[]]
+        for i, cr in enumerate(crs):
+            for subj in subj_lst:
+                idx = (data['sub_id'] == subj) \
+                    & (data['b_type'] == b) 
+                cr_val = data[f'{cr}'][idx].mean()
+                phi[i].append(cr_val)
+        outcomes.append(phi)
+    return outcomes
+
+def smry_raw_data( outcomes, model_lst, args):
+    
+    ## Loop to summary the feature for each model
+    for model in model_lst:
+        # check if the model has a record or not
+        if model not in outcomes.keys(): outcomes[model] = dict()
+        # start analyzing 
+        print( f'Analyzing {model}')
+        res = get_raw_analyses( model)
+        outcomes[model][f'human-model-Stab'] = res[0]
+        outcomes[model][f'human-model-Vol']  = res[1] 
+        
+    return outcomes
 
 #=============================
 #        Quant Crieria
@@ -146,18 +182,21 @@ def smry_rr_analyses( outcomes, model_lst, args):
 
     ## Loop to summary the feature for each model
     for model in model_lst:
-        # check if the model has a record or not
-        if model not in outcomes.keys(): outcomes[model] = dict()
-        # start analyzing 
-        print( f'Analyzing {model}')
-        cum_crs = { eff: 0 for eff in eoi_rr}
-        for mode in [ 'reg', 'check']:
-            crs = get_rr_analyses( args.data_set, model, mode)
-            cum_crs[f'eq-pi_comp-Stab-{mode}'] = np.array(crs[0])
-            cum_crs[f'eq-pi_comp-Vol-{mode}']  = np.array(crs[1])
-        # record the result to the outcomes
-        for eff in eoi_rr:
-            outcomes[model][eff] = cum_crs[eff] 
+        if model != 'model11':
+            # check if the model has a record or not
+            if model not in outcomes.keys(): outcomes[model] = dict()
+            # start analyzing 
+            print( f'Analyzing {model}')
+            cum_crs = { eff: 0 for eff in eoi_rr}
+            for mode in [ 'reg', 'check']:
+                crs = get_rr_analyses( args.data_set, model, mode)
+                cum_crs[f'eq-pi_comp-Stab-{mode}'] = np.array(crs[0])
+                cum_crs[f'eq-pi_comp-Vol-{mode}']  = np.array(crs[1])
+            # record the result to the outcomes
+            for eff in eoi_rr:
+                outcomes[model][eff] = cum_crs[eff] 
+        else:
+            pass 
     
     return outcomes
 
@@ -179,16 +218,19 @@ if __name__ == '__main__':
             outcomes = pickle.load( handle)
     except:
         outcomes = dict() 
+
+    ## STEP1: GET THE RAW DATA FEATURE
+    oucomes = smry_raw_data( outcomes, models, args)
     
-    ## STEP1: GET THE QUANTITATIVE METRICS
+    ## STEP2: GET THE QUANTITATIVE METRICS
     outcomes = smry_quant_criteria( pool, outcomes, models, args)
     
-    ## STEP2: GET RATE DISTORTION ANALYSES
+    ## STEP3: GET RATE DISTORTION ANALYSES
     outcomes = smry_rr_analyses( outcomes, models, args)
 
-    ## STEP3: GET PARAMS SUMMARY
+    ## STEP4: GET PARAMS SUMMARY
     outcomes = smry_params( outcomes, models, args)
     
-    ## STEP4: SAVE THE OUTCOMES
+    ## STEP5: SAVE THE OUTCOMES
     with open( fname, 'wb')as handle:
         pickle.dump( outcomes, handle)

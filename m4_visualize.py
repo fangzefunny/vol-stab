@@ -24,10 +24,37 @@ sns.set_style("whitegrid", {'axes.grid' : False})
 # image dpi
 dpi = 250
 
-def show_rd_curves( outcomes, mode):
+def val_fit( outcomes, model):
+    data = outcomes[model]
+    fig, axs = plt.subplots( 1, 2, figsize=( 5, 2.5))
+    d_lst = [data[f'human-model-Stab'][0], data[f'human-model-Vol'][0]]
+    ax = axs[0]
+    for j, d in enumerate(d_lst):
+            ax.scatter( j*np.ones_like(d), d, s=20, color=colors[j], alpha=.4)
+            ax.errorbar( [j-.1,j,j+.1], [np.nanmean(d)]*3, 
+                        [0,np.nanstd(d)/np.sqrt(len(d)),0], color='k') 
+    ax.set_xticks([0, 1,])
+    ax.set_xlim([-.5, 1.5])
+    ax.set_xticklabels( ['Stable', 'Volatile'], fontsize=16)
+    ax.set_ylabel( 'Avg. human reward', fontsize=16)
+    print( f'Avg. huamn rew ttest: {ttest_ind( d_lst[0], d_lst[1])}')
+    d_lst = [data[f'human-model-Stab'][1], data[f'human-model-Vol'][1]]
+    ax = axs[1]
+    for j, d in enumerate(d_lst):
+            ax.scatter( j*np.ones_like(d), d, s=20, color=colors[j], alpha=.4)
+            ax.errorbar( [j-.1,j,j+.1], [np.nanmean(d)]*3, 
+                        [0,np.nanstd(d)/np.sqrt(len(d)),0], color='k') 
+    ax.set_xticks([0, 1,])
+    ax.set_xlim([-.5, 1.5])
+    ax.set_xticklabels( ['Stable', 'Volatile'], fontsize=16)
+    ax.set_ylabel( 'Avg. model reward', fontsize=16)
+    print( f'Avg. {model} rew ttest: {ttest_ind( d_lst[0], d_lst[1])}')
+    plt.tight_layout()
+
+def show_rd_curves( outcomes, model, mode):
     '''Show the rate-distortion curve 
     '''
-    data = outcomes['RDModel2']
+    data = outcomes[model]
     groups = [ 'Stab', 'Vol']
     fig, axs = plt.subplots( 2, 2, figsize=( 6, 6))
     # rate distortion curve
@@ -41,7 +68,7 @@ def show_rd_curves( outcomes, mode):
     ax.legend( groups)
     ax.set_xlabel('Policy Complexiy', fontsize=16)
     ax.set_ylabel('Expected reward', fontsize=16)
-    # blank
+    # human rew
     ax = axs[ 0, 1]
     ax.set_axis_off()
     # policy complexity 
@@ -70,11 +97,10 @@ def show_rd_curves( outcomes, mode):
     print( f'{mode} expected reward ttest: {ttest_ind( d_lst[0], d_lst[1])}')
     plt.tight_layout()
     
-
-def show_RR_params( outcomes):
+def show_RR_params( outcomes, model):
     '''Show the parameters summary 
     '''
-    data = outcomes['RDModel2']
+    data = outcomes[ model]
     params = [ 'alpha_s', 'alpha_a', 'beta']
     groups = [ 'Stab', 'Vol']
     params_name = [ r'$\alpha_s$', r'$\alpha_a$', r'$\beta$']
@@ -93,7 +119,7 @@ def show_RR_params( outcomes):
         ax.set_xlim([-.5, 1.5])
         ax.set_xticklabels( ['Stable', 'Volatile'],fontsize=16)
         ax.set_ylabel( params_name[i],fontsize=16)
-        print( f't test for {param}: {ttest_ind( d_lst[0], d_lst[1])}')
+        print( f't test for {model} {param}: {ttest_ind( d_lst[0], d_lst[1])}')
 
         ax = axs[1, 1]
         ax.set_axis_off()
@@ -106,14 +132,17 @@ if __name__ == '__main__':
     ## STEP1: EXPLORE RAW DATA
     
     ## STEP1: MODEL-BASED ANALYSIS
-    datasets = ['exp1_rew']
+    datasets = ['exp1_rew', 'rew_con']
+    models   = ['RDModel2', 'model11']
     for dataset in datasets:
-        fname = f'{path}/analyses/analyses-{dataset}.pkl'
-        with open( fname, 'rb')as handle:
-                outcomes = pickle.load( handle)
-        show_rd_curves( outcomes, 'reg')
-        plt.savefig( f'{path}/figures/RD_curves-{dataset}-mode=reg.png', dpi=500) 
-        show_rd_curves( outcomes, 'check')
-        plt.savefig( f'{path}/figures/RD_curves-{dataset}-mode=check.png', dpi=500) 
-        show_RR_params( outcomes)
-        plt.savefig( f'{path}/figures/param_smary-{dataset}.png', dpi=500) 
+        for model in models:
+            fname = f'{path}/analyses/analyses-{dataset}.pkl'
+            with open( fname, 'rb')as handle:
+                    outcomes = pickle.load( handle)
+            val_fit( outcomes, model)
+            plt.savefig( f'{path}/figures/fit_validate-{dataset}-model={model}.png', dpi=500) 
+            show_RR_params( outcomes, model)
+            plt.savefig( f'{path}/figures/param_smary-{dataset}-model={model}.png', dpi=500) 
+            if model != 'model11':
+                show_rd_curves( outcomes, model, 'reg')
+                plt.savefig( f'{path}/figures/RD_curves-{dataset}-model={model}.png', dpi=500) 
