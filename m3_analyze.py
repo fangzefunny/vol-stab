@@ -13,7 +13,7 @@ path = os.path.dirname(os.path.abspath(__file__))
 
 ## pass the hyperparams
 parser = argparse.ArgumentParser(description='Test for argparse')
-parser.add_argument('--n_subj', '-f', help='f simulations', type=int, default=20)
+parser.add_argument('--n_subj', '-f', help='f simulations', type=int, default=1)
 parser.add_argument('--data_set', '-d', help='choose data set', default='rew_con')
 parser.add_argument('--agent_name', '-n', help='choose agent', default='RDModel2')
 parser.add_argument('--n_cores', '-c', help='number of CPU cores used for parallel computing', 
@@ -38,7 +38,10 @@ def get_pool( args):
 #=============================
 
 def get_quant_criteria( data_set, model, sub_idx):
-    fname = f'{path}/fits/{model}/params-{data_set}-{sub_idx}.csv'
+    try:
+        fname = f'{path}/fits/{args.agent_name}/params-rew_con-{sub_idx}.csv'  
+    except:
+        fname = f'{path}/fits/{args.agent_name}/params-rew_data_exp1-{sub_idx}.csv'  
     record = pd.read_csv( fname, index_col=0)
     nll    = record.iloc[ 0, -3]
     aic    = record.iloc[ 0, -2]
@@ -81,28 +84,12 @@ def smry_quant_criteria( pool, outcomes, models, args):
 #     Analyze parameters
 #=============================
 
-eoi = [ 'alpha_s-hc-block', 'alpha_a-hc-block', 'beta-hc-block', 
-        'alpha_s-pa-block', 'alpha_a-pa-block', 'beta-pa-block',]
+eoi = [ 'alpha_s-block', 'alpha_a-block', 'beta-block', 
+        'alpha_s-block', 'alpha_a-block', 'beta-block',]
 
 def smry_params( outcomes, model_lst, args):
     '''Generate parameters for each model
     '''
-    # get all participants' id
-    fname = f'{path}/data/participant_table_exp1.csv'
-    data  = pd.read_csv( fname, index_col=0)
-    data.reset_index(drop=True,inplace=True)
-    group = dict()
-    sub_ind, group['pa'], group['hc'] = [], [], []
-    for i in range(data.shape[0]):
-        sub_idx = data.loc[ i, 'MID']
-        sub_type = data.loc[ i, 'group']
-        if sub_idx not in sub_ind: 
-            sub_ind.append(sub_idx)
-            if sub_type in [ 'MDD', 'GAD']:
-                group['pa'].append( sub_idx)
-            else:
-                group['hc'].append( sub_idx)
-    
     # get analyzable id 
     with open(f'{path}/data/{args.data_set}.pkl', 'rb') as handle:
         sub_ind = list(pickle.load( handle).keys())
@@ -115,15 +102,17 @@ def smry_params( outcomes, model_lst, args):
         temp_dict = { eff: [[],[]] for eff in eoi}
         print( f'Analyzing {model}')
         for sub_id in sub_ind:
-            sub_type = 'pa' if sub_id in group['pa'] else 'hc'
-            fname = f'{path}/fits/{model}/params-{args.data_set}-{sub_id}.csv'
+            try:
+                fname = f'{path}/fits/{args.agent_name}/params-rew_con-{sub_id}.csv'  
+            except:
+                fname = f'{path}/fits/{args.agent_name}/params-rew_data_exp1-{sub_id}.csv'  
             data  = pd.read_csv( fname, index_col=0)
-            temp_dict[f'alpha_s-{sub_type}-block'][0].append(data.iloc[ 0, 0])
-            temp_dict[f'alpha_s-{sub_type}-block'][1].append(data.iloc[ 0, 3]) 
-            temp_dict[f'alpha_a-{sub_type}-block'][0].append(data.iloc[ 0, 1])
-            temp_dict[f'alpha_a-{sub_type}-block'][1].append(data.iloc[ 0, 4])
-            temp_dict[f'beta-{sub_type}-block'][0].append(data.iloc[ 0, 2])
-            temp_dict[f'beta-{sub_type}-block'][1].append(data.iloc[ 0, 5])
+            temp_dict[f'alpha_s-block'][0].append(data.iloc[ 0, 0])
+            temp_dict[f'alpha_s-block'][1].append(data.iloc[ 0, 3]) 
+            temp_dict[f'alpha_a-block'][0].append(data.iloc[ 0, 1])
+            temp_dict[f'alpha_a-block'][1].append(data.iloc[ 0, 4])
+            temp_dict[f'beta-block'][0].append(data.iloc[ 0, 2])
+            temp_dict[f'beta-block'][1].append(data.iloc[ 0, 5])
             #temp_dict[f'eq-{sub_type}-pi_comp'].append()
         # record the result to the outcomes
         for eff in eoi:

@@ -18,7 +18,7 @@ path = os.path.dirname(os.path.abspath(__file__))
 ## pass the hyperparams
 parser = argparse.ArgumentParser(description='Test for argparse')
 parser.add_argument('--fit_num', '-f', help='fit times', type = int, default=1)
-parser.add_argument('--data_set', '-d', help='which_data', type = str, default='rew_con')
+parser.add_argument('--data_set', '-d', help='which_data', type = str, default='exp1_all')
 parser.add_argument('--loss_fn', '-l', help='fitting methods', type = str, default='mle')
 parser.add_argument('--group', '-g', help='fit to ind or fit to the whole group', type=str, default='ind')
 parser.add_argument('--agent_name', '-n', help='choose agent', default='SMModel')
@@ -164,7 +164,7 @@ def summary( data, args):
 if __name__ == '__main__':
 
     ## STEP 0: LOAD DATA
-    with open(f'{path}/data/{args.data_set}_data.pkl', 'rb') as handle:
+    with open(f'{path}/data/{args.data_set}.pkl', 'rb') as handle:
         data = pickle.load( handle)
 
     ## STEP 1: HYPERPARAMETER TUNING

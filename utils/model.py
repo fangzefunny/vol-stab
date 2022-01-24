@@ -48,7 +48,7 @@ class subj:
 
         # init 
         NLL = 0.
-        brain = self.agent( 2, 2, self.rng, params)
+        agent = self.agent( 2, 2, self.rng, params)
 
         # loop to estimate the neg log likelihood
         for t in range( data.shape[0]):
@@ -60,17 +60,17 @@ class subj:
             state = int( data.state[t])
             # planning the action
             mem = { 'ctxt': ctxt, 'obs': obs, 'state': state }    
-            brain.memory.push( mem) 
-            brain.plan_act()
+            agent.memory.push( mem) 
+            agent.plan_act()
             act   = int( data.action[t])
             rew   = obs[ act]
             # store 
             mem = { 'act': act,  'rew': rew,     't': t }    
-            brain.memory.push( mem)
+            agent.memory.push( mem)
             # evaluate: log π(a|xt)
-            NLL += - np.log( brain.eval_act( act) + eps_)
+            NLL += - np.log( agent.eval_act( act) + eps_)
             # leanring stage 
-            brain.update()
+            agent.update()
         
         return NLL
 
@@ -114,8 +114,6 @@ class subj:
         out_data = []
         for i in data.keys():
             input_sample = data[i].copy()
-            input_sample['human_act'] = input_sample['action'].copy()
-            input_sample = input_sample.drop( columns=['action'])
             out_data.append( self.simulate( input_sample, params))
         return pd.concat( out_data, ignore_index=True)
 
@@ -127,37 +125,34 @@ class subj:
         agent= self.agent( state_dim, action_dim, self.rng, params) 
         
         ## init a blank dataframe to store simulation
-        col = [ 'action', 'act_acc', 'rew', 'p_s', 
+        col = [ 'action', 'rew', 'p_s', 
                 'pi_0', 'pi_1', 'nll', 'q_a',
                 'pi_comp', 'psi_comp', 'EQ']
         init_mat = np.zeros([ data.shape[0], len(col)]) + np.nan
         pred_data = pd.DataFrame( init_mat, columns=col)  
 
         for t in range( data.shape[0]):
-
-            # obtain st, at, and rt
+            
+             # obtain st and at, 
             mag0      = data['mag0'][t]
             mag1      = data['mag1'][t]
             obs       = [ mag0, mag1]
             state     = int(data['state'][t])
-            human_act = int(data['human_act'][t])
             ctxt      = int(data['b_type'][t])
-            mem = { 'ctxt': ctxt, 'obs': obs, 'state': state}
-            agent.memory.push( mem)  
+            # planning the action
+            mem = { 'ctxt': ctxt, 'obs': obs, 'state': state }    
+            agent.memory.push( mem) 
             agent.plan_act()
-            act       = agent.get_act()
-            rew       = obs[act] * ( state == act)
+            act   = int( data.action[t])
+            rew   = obs[ act]
             
-            # evaluate action: get p(ai|S = si)
-            pi_a1x    = agent.eval_act( act)
-            like      = agent.eval_act( human_act)
+            # evaluate: log π(a|xt)
+            nll = - np.log( agent.eval_act( act) + eps_)
 
             # record some vals
-            pred_data['action'][t]    = act
             pred_data['rew'][t]       = rew
-            pred_data['act_acc'][t]   = pi_a1x
             pred_data['p_s'][t]       = agent.p_s[ 0, 0]
-            pred_data['nll'][t]       = -np.log( like + eps_)
+            pred_data['nll'][t]       = nll
 
             # record some important variable
             if agent.pi is not None: 
@@ -176,7 +171,15 @@ class subj:
 
         ## Merge the data into a large 
         pred_data = pred_data.dropna( axis=1, how='all')
-        data = pd.concat( [ data, pred_data], axis=1)       
+        data = pd.concat( [ data, pred_data], axis=1)   
+
+        # show pi_comp
+        pi_comp1 = data['pi_comp'][ data['b_type']==1].mean()
+        pi_comp2 = data['pi_comp'][ data['b_type']==0].mean()
+        sb_id = data['sub_id'][0]
+        print( f'Sub id: {sb_id}')
+        print( f'Stab beta: {agent.beta_stab}; Vol beta: {agent.beta_vol}')
+        print( f'Stab Pi Comp: {pi_comp1}; Vol Pi Comp: {pi_comp2}')    
             
         return data
 
