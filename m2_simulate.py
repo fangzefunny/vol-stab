@@ -21,7 +21,7 @@ parser.add_argument('--mode', '-m', help='type of simulation', default='reg')
 parser.add_argument('--group', '-g', help='choose agent', default='ind')
 parser.add_argument('--seed', '-s', help='random seed', type=int, default=120)
 parser.add_argument('--n_cores', '-c', help='number of CPU cores used for parallel computing', 
-                                            type=int, default=0)
+                                            type=int, default=1)
 args = parser.parse_args()
 
 # create the folders for this folder
