@@ -115,7 +115,7 @@ def preprocess( mode='rew_con'):
     n_exp1 = len( rew_con_data.keys())
 
     ## Continue if mode is rew_con
-    if mode is not 'rew_con':
+    if mode != 'rew_con':
         print( f'#subj in {mode}: {n_exp1}')
         with open( f'{path}/data/{mode}.pkl', 'wb')as handle:
             pickle.dump( rew_con_data, handle)

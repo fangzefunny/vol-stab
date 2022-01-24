@@ -17,7 +17,7 @@ path = os.path.dirname(os.path.abspath(__file__))
 parser = argparse.ArgumentParser(description='Test for argparse')
 parser.add_argument('--agent_name', '-n', help='choose agent', default='RDModel2')
 parser.add_argument('--data_set', '-d', help='choose data set', default='rew_con')
-parser.add_argument('--n_sim', '-f', help='f simulations', type=int, default=1)
+parser.add_argument('--mode', '-m', help='type of simulation', default='reg')
 parser.add_argument('--group', '-g', help='choose agent', default='ind')
 parser.add_argument('--seed', '-s', help='random seed', type=int, default=120)
 parser.add_argument('--n_cores', '-c', help='number of CPU cores used for parallel computing', 
@@ -31,33 +31,37 @@ if not os.path.exists(f'{path}/simulations/{args.agent_name}'):
     os.mkdir(f'{path}/simulations/{args.agent_name}')
 
 # define simulation fn
-def simulate( data, args, seed, in_params=[]):
-
-    # define the RL model 
+def simulate( data, sub_idx, args, seed):
+    '''Simualte the data for a subject
+    '''
+    print( f'sim {sub_idx}')
+    ## Define the RL model 
     model = subj( args.agent, seed)
     n_params = len( args.bnds)
 
-    ## Loop to choose the best model for simulation
-    for i, sub_idx in enumerate( data.keys()): 
+    ## Obtain parameters 
+    if args.mode == 'reg':
+        if args.group == 'ind': 
+            fname = f'{path}/fits/{args.agent_name}/params-{args.data_set}-{sub_idx}.csv'    
+        elif args.group == 'avg':
+            fname = f'{path}/fits/params-{args.data_set}-{args.agent_name}-avg.csv'      
+        params = pd.read_csv( fname, index_col=0).iloc[0, 0:n_params].values
+    elif args.mode == 'check':
+        # in this simulation we replace the beta_stab with beta_vol
+        if args.group == 'ind': 
+            fname = f'{path}/fits/{args.agent_name}/params-{args.data_set}-{sub_idx}.csv'  
+        elif args.group == 'avg':
+            fname = f'{path}/fits/params-{args.data_set}-{args.agent_name}-avg.csv'
+        df = pd.read_csv( fname, index_col=0)
+        params = df.iloc[0, 0:n_params].values
+        beta_stab_id = list(df.columns).index('β_stab')
+        beta_vol_id  = list(df.columns).index('β_vol')
+        params[beta_stab_id] = params[beta_vol_id]
+    else:
+        raise ValueError("Choose the correct simulation mode")
 
-        if len( in_params) ==0:
-            if args.group == 'ind': 
-                fname = f'{path}/fits/{args.agent_name}/params-{args.data_set}-{sub_idx}.csv'    
-            elif args.group == 'avg':
-                fname = f'{path}/fits/params-{args.data_set}-{args.agent_name}-avg.csv'      
-            params = pd.read_csv( fname, index_col=0).iloc[0, 0:n_params].values
-        else:
-            params = in_params
-
-        # synthesize the data and save
-        seed += 1
-        sim_sample = model.predict( {f'{sub_idx}':data[ sub_idx]}, params)
-        if i == 0:
-            sim_data = sim_sample 
-        else:
-            sim_data = pd.concat( [ sim_data, sim_sample], axis=0, ignore_index=True)
-
-    return sim_data
+    ## synthesize the data and save
+    return model.predict( {f'{sub_idx}':data}, params)
 
 # define functions
 def sim_paral( data, args):
@@ -67,22 +71,28 @@ def sim_paral( data, args):
         individual squence and parameters， and then averaged 
         to represent subjects contribution."
     '''
+    ## Get all the subject id 
+    sub_ind = list(data.keys())
+
     ## Get the multiprocessing pool
     n_cores = args.n_cores if args.n_cores else int( mp.cpu_count()) 
-    n_cores = np.min( [ n_cores, args.n_sim])
+    n_cores = np.min( [ n_cores, len(sub_ind)])
     pool = mp.Pool( n_cores)
     print( f'Using {n_cores} parallel CPU cores')
 
-    ## Simulate data for n_sim times 
+    ## Simulate data for each subject
     seed = args.seed 
-    res = [ pool.apply_async( simulate, args=( data, args, seed+5*i))
-                            for i in range( args.n_sim)]
+    res = [ pool.apply_async( simulate, args=( data[sub_id], sub_id, args, seed+5*i))
+                            for i, sub_id in enumerate(sub_ind)]
     for i, p in enumerate( res):
-        sim_data = p.get() 
-        fname = f'{path}/simulations/{args.agent_name}/sim_{args.data_set}-idx{i}.csv'
-        sim_data.to_csv( fname, index = False, header=True)
+        sim_sample = p.get() 
+        if i == 0:
+            sim_data = sim_sample 
+        else:
+            sim_data = pd.concat( [ sim_data, sim_sample], axis=0, ignore_index=True)
+    fname = f'{path}/simulations/{args.agent_name}/sim_{args.data_set}-mode={args.mode}.csv'
+    sim_data.to_csv( fname, index = False, header=True)
     
-
 if __name__ == '__main__':
     
     ## STEP 0: HYPERPARAMETER TUNING

@@ -9,6 +9,9 @@ from scipy.stats import ttest_ind
 
 # find the current path
 path = os.path.dirname(os.path.abspath(__file__))
+# create the folders for this folder
+if not os.path.exists(f'{path}/figures'):
+    os.mkdir(f'{path}/figures')
 # define some color 
 Blue    = .85 * np.array([   9, 132, 227]) / 255
 Green   = .85 * np.array([   0, 184, 148]) / 255
@@ -21,28 +24,28 @@ sns.set_style("whitegrid", {'axes.grid' : False})
 # image dpi
 dpi = 250
 
-def show_rd_curves( outcomes):
+def show_rd_curves( outcomes, mode):
     '''Show the rate-distortion curve 
     '''
     data = outcomes['RDModel2']
     groups = [ 'Stab', 'Vol']
     fig, axs = plt.subplots( 2, 2, figsize=( 6, 6))
-    ## Rate distortion curve 
+    # rate distortion curve
     ax = axs[ 0, 0]
-    ax.scatter( data['eq-pi_comp-Stab'][1], 
-                 data['eq-pi_comp-Stab'][0],
+    ax.scatter( data[f'eq-pi_comp-Stab-{mode}'][1], 
+                 data[f'eq-pi_comp-Stab-{mode}'][0],
                  color=Blue, s=60)
-    ax.scatter( data['eq-pi_comp-Vol'][1],
-                 data['eq-pi_comp-Vol'][0],
+    ax.scatter( data[f'eq-pi_comp-Vol-reg'][1],
+                 data[f'eq-pi_comp-Vol-reg'][0],
                  color=Red, s=60)
     ax.legend( groups)
     ax.set_xlabel('Policy Complexiy', fontsize=16)
     ax.set_ylabel('Expected reward', fontsize=16)
-    ## blank 
+    # blank
     ax = axs[ 0, 1]
     ax.set_axis_off()
-    ## Policy Complexity
-    d_lst = [ data['eq-pi_comp-Stab'][1], data['eq-pi_comp-Vol'][1]]
+    # policy complexity 
+    d_lst = [ data[f'eq-pi_comp-Stab-{mode}'][1], data[f'eq-pi_comp-Vol-reg'][1]]
     ax = axs[ 1, 0]
     for j, d in enumerate(d_lst):
             ax.scatter( j*np.ones_like(d), d, s=20, color=colors[j], alpha=.4)
@@ -52,8 +55,9 @@ def show_rd_curves( outcomes):
     ax.set_xlim([-.5, 1.5])
     ax.set_xticklabels( ['Stable', 'Volatile'], fontsize=16)
     ax.set_ylabel( 'Avg. policy complexity', fontsize=16)
-    ## Policy Complexity
-    d_lst = [ data['eq-pi_comp-Stab'][0], data['eq-pi_comp-Vol'][0]]
+    print( f'{mode} policy complexity ttest: {ttest_ind( d_lst[0], d_lst[1])}')
+    # expected reward
+    d_lst = [ data[f'eq-pi_comp-Stab-{mode}'][0], data[f'eq-pi_comp-Vol-reg'][0]]
     ax = axs[ 1, 1]
     for j, d in enumerate(d_lst):
             ax.scatter( j*np.ones_like(d), d, s=20, color=colors[j], alpha=.4)
@@ -63,8 +67,9 @@ def show_rd_curves( outcomes):
     ax.set_xlim([-.5, 1.5])
     ax.set_xticklabels( ['Stable', 'Volatile'], fontsize=16)
     ax.set_ylabel( 'Avg. expected reward', fontsize=16)
+    print( f'{mode} expected reward ttest: {ttest_ind( d_lst[0], d_lst[1])}')
     plt.tight_layout()
-    plt.savefig( f'{path}/figures/RD_curves.png', dpi=500) 
+    plt.savefig( f'{path}/figures/RD_curves-mode={mode}.png', dpi=500) 
 
 def show_RR_params( outcomes):
     '''Show the parameters summary 
@@ -104,6 +109,6 @@ if __name__ == '__main__':
     fname = f'{path}/analyses/analyses-rew_con.pkl'
     with open( fname, 'rb')as handle:
             outcomes = pickle.load( handle)
-    show_rd_curves( outcomes)
+    show_rd_curves( outcomes, 'reg')
+    show_rd_curves( outcomes, 'check')
     show_RR_params( outcomes)
-

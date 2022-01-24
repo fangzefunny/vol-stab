@@ -173,14 +173,13 @@ class subj:
         pred_data = pred_data.dropna( axis=1, how='all')
         data = pd.concat( [ data, pred_data], axis=1)   
 
-        # show pi_comp
-        pi_comp1 = data['pi_comp'][ data['b_type']==1].mean()
-        pi_comp2 = data['pi_comp'][ data['b_type']==0].mean()
-        sb_id = data['sub_id'][0]
-        print( f'Sub id: {sb_id}')
-        print( f'Stab beta: {agent.beta_stab}; Vol beta: {agent.beta_vol}')
-        print( f'Stab Pi Comp: {pi_comp1}; Vol Pi Comp: {pi_comp2}')    
-            
+        # # show pi_comp
+        # pi_comp1 = data['pi_comp'][ data['b_type']==1].mean()
+        # pi_comp2 = data['pi_comp'][ data['b_type']==0].mean()
+        # sb_id = data['sub_id'][0]
+        # print( f'Sub id: {sb_id}')
+        # print( f'Stab beta: {agent.beta_stab}; Vol beta: {agent.beta_vol}')
+        # print( f'Stab Pi Comp: {pi_comp1}; Vol Pi Comp: {pi_comp2}')    
         return data
 
 
