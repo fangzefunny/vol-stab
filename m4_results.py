@@ -24,6 +24,42 @@ sns.set_style("whitegrid", {'axes.grid' : False})
 # image dpi
 dpi = 250
 
+def viz_task():
+    plt.figure( figsize=( 6.5, 2.5))
+    plt.plot( np.arange(1,91), np.ones([90])*.7,
+                '--', color=Blue, linewidth=2)
+    plt.fill_between( np.arange(1,91), np.ones([90])*1,
+                color=Blue, alpha=.1)
+    plt.vlines( x=91, ymin=.2, ymax=.7,
+                linestyles='dashed', color=Red, linewidth=2)
+    plt.plot( np.arange(91,111), np.ones([20])*.2,
+                '--', color=Red, linewidth=2)
+    plt.vlines( x=111, ymin=.2, ymax=.8,
+                linestyles='dashed', color=Red, linewidth=2)
+    plt.plot( np.arange(111,131), np.ones([20])*.8,
+                '--', color=Red, linewidth=2)
+    plt.vlines( x=131, ymin=.2, ymax=.8,
+                linestyles='dashed', color=Red, linewidth=2)
+    plt.plot( np.arange(131,151), np.ones([20])*.2,
+                '--', color=Red, linewidth=2)
+    plt.vlines( x=151, ymin=.2, ymax=.8,
+                linestyles='dashed', color=Red, linewidth=2)
+    plt.plot( np.arange(151,171), np.ones([20])*.8,
+                '--', color=Red, linewidth=2)
+    plt.vlines( x=171, ymin=.2, ymax=.8,
+                linestyles='dashed', color=Red, linewidth=2)
+    plt.plot( np.arange(171,181), np.ones([10])*.2,
+                '--', color=Red, linewidth=2)
+    plt.text( 30, .9, 'Stable', fontsize=16)
+    plt.text( 120, .9, 'Volatile', fontsize=16)
+    plt.xlabel( 'Trials', fontsize=16)
+    plt.xlim( [ 1, 180])
+    plt.ylim( [ 0, 1.05])
+    plt.ylabel( 'The left stimulus \nresults in reward', fontsize=14)
+    plt.tight_layout()
+    plt.savefig( f'{path}/figures/experiment_paradigm.png', dpi=dpi)
+    
+
 def viz_fit_goodness( outcomes, model):
     data = outcomes[model]['RC-anlyses']
     crs  = [ 'rew', 'rew_hat']
@@ -142,18 +178,22 @@ def t_tests( outcomes, model):
 
 if __name__ == '__main__':
 
-    datasets = ['exp1_rew']
-    models   = ['RDModel2', 'model11']
-    for dataset in datasets:
-        for model in models:
-            fname = f'{path}/analyses/analyses-{dataset}.pkl'
-            with open( fname, 'rb')as handle:
-                    outcomes = pickle.load( handle)
-            viz_fit_goodness( outcomes, model)
-            plt.savefig( f'{path}/figures/fit_validate-{dataset}-model={model}.png', dpi=500) 
-            viz_params( outcomes, model)
-            plt.savefig( f'{path}/figures/param_smary-{dataset}-model={model}.png', dpi=500) 
-            if model != 'model11':
-                viz_RC_anlyses( outcomes, model)
-                plt.savefig( f'{path}/figures/RD_curves-{dataset}-model={model}.png', dpi=500) 
-            t_tests( outcomes, model)
+    ## Show experiment paradigm
+    viz_task()
+
+    # ## Analyze the data 
+    # datasets = ['exp1_rew']
+    # models   = ['RDModel2', 'model11']
+    # for dataset in datasets:
+    #     for model in models:
+    #         fname = f'{path}/analyses/analyses-{dataset}.pkl'
+    #         with open( fname, 'rb')as handle:
+    #                 outcomes = pickle.load( handle)
+    #         viz_fit_goodness( outcomes, model)
+    #         plt.savefig( f'{path}/figures/fit_validate-{dataset}-model={model}.png', dpi=500) 
+    #         viz_params( outcomes, model)
+    #         plt.savefig( f'{path}/figures/param_smary-{dataset}-model={model}.png', dpi=500) 
+    #         if model != 'model11':
+    #             viz_RC_anlyses( outcomes, model)
+    #             plt.savefig( f'{path}/figures/RD_curves-{dataset}-model={model}.png', dpi=500) 
+    #         t_tests( outcomes, model)
