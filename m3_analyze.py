@@ -14,8 +14,8 @@ path = os.path.dirname(os.path.abspath(__file__))
 ## pass the hyperparams
 parser = argparse.ArgumentParser(description='Test for argparse')
 parser.add_argument('--n_subj', '-f', help='f simulations', type=int, default=1)
-parser.add_argument('--data_set', '-d', help='choose data set', default='rew_con')
-parser.add_argument('--agent_name', '-n', help='choose agent', default='model11')
+parser.add_argument('--data_set', '-d', help='choose data set', default='exp1_rew')
+parser.add_argument('--agent_name', '-n', help='choose agent', default='RDModel2')
 parser.add_argument('--n_cores', '-c', help='number of CPU cores used for parallel computing', 
                                             type=int, default=0)
 args = parser.parse_args()
@@ -32,42 +32,6 @@ def get_pool( args):
     n_cores = args.n_cores if args.n_cores else int( mp.cpu_count()) 
     print( f'Using {n_cores} parallel CPU cores')
     return mp.Pool( n_cores) 
-
-#=============================
-#      raw data analysis 
-#=============================
-
-def get_raw_analyses( model):
-    fname = f'{path}/simulations/{model}/sim_{args.data_set}-mode=reg.csv'
-    data  = pd.read_csv( fname)
-    subj_lst = data['sub_id'].unique()
-    crs = [ 'rew', 'rew_hat']
-    b_types = [ 1, 0]
-    outcomes = []
-    for b in b_types:
-        phi = [[],[]]
-        for i, cr in enumerate(crs):
-            for subj in subj_lst:
-                idx = (data['sub_id'] == subj) \
-                    & (data['b_type'] == b) 
-                cr_val = data[f'{cr}'][idx].mean()
-                phi[i].append(cr_val)
-        outcomes.append(phi)
-    return outcomes
-
-def smry_raw_data( outcomes, model_lst, args):
-    
-    ## Loop to summary the feature for each model
-    for model in model_lst:
-        # check if the model has a record or not
-        if model not in outcomes.keys(): outcomes[model] = dict()
-        # start analyzing 
-        print( f'Analyzing {model}')
-        res = get_raw_analyses( model)
-        outcomes[model][f'human-model-Stab'] = res[0]
-        outcomes[model][f'human-model-Vol']  = res[1] 
-        
-    return outcomes
 
 #=============================
 #        Quant Crieria
@@ -117,9 +81,6 @@ def smry_quant_criteria( pool, outcomes, models, args):
 #     Analyze parameters
 #=============================
 
-eoi = [ 'alpha_s-block', 'alpha_a-block', 'beta-block', 
-        'alpha_s-block', 'alpha_a-block', 'beta-block',]
-
 def smry_params( outcomes, model_lst, args):
     '''Generate parameters for each model
     '''
@@ -132,74 +93,68 @@ def smry_params( outcomes, model_lst, args):
         # check if the model has a record or not
         if model not in outcomes.keys(): outcomes[model] = dict()
         # start analyzing 
-        temp_dict = { eff: [[],[]] for eff in eoi}
         print( f'Analyzing {model}')
-        for sub_id in sub_ind:
-            fname = f'{path}/fits/{model}/params-{args.data_set}-{sub_id}.csv'  
-            data  = pd.read_csv( fname, index_col=0)
-            temp_dict[f'alpha_s-block'][0].append(data.iloc[ 0, 0])
-            temp_dict[f'alpha_s-block'][1].append(data.iloc[ 0, 3]) 
-            temp_dict[f'alpha_a-block'][0].append(data.iloc[ 0, 1])
-            temp_dict[f'alpha_a-block'][1].append(data.iloc[ 0, 4])
-            temp_dict[f'beta-block'][0].append(data.iloc[ 0, 2])
-            temp_dict[f'beta-block'][1].append(data.iloc[ 0, 5])
-            #temp_dict[f'eq-{sub_type}-pi_comp'].append()
-        # record the result to the outcomes
-        for eff in eoi:
-            outcomes[model][eff] = temp_dict[eff] 
-    
+        b_types, b_names = [ 1, 0], [ 'Stable', 'Volatile']
+        temp = { 'alpha_s': [], 'alpha_a': [], 'beta': [],
+                 'Trial type': []}
+        for b, bn in zip( b_types, b_names):
+            for sub_id in sub_ind:
+                fname = f'{path}/fits/{model}/params-{args.data_set}-{sub_id}.csv'  
+                data  = pd.read_csv( fname, index_col=0)
+                if b:
+                    temp['alpha_s'].append(data.iloc[ 0, 0])
+                    temp['alpha_a'].append(data.iloc[ 0, 1]) 
+                    temp['beta'].append(data.iloc[ 0, 2])
+                else:
+                    temp['alpha_s'].append(data.iloc[ 0, 3])
+                    temp['alpha_a'].append(data.iloc[ 0, 4]) 
+                    temp['beta'].append(data.iloc[ 0, 5])
+                temp['Trial type'].append(bn)
+        outcomes[model]['params'] = pd.DataFrame( temp)
     return outcomes
 
 #==================================
-#     Resource-rational analyses
+#     Reward-Complexity analyses
 #==================================
 
-## Define a global Effect of interest  
-eoi_rr = [ 'eq-pi_comp-Stab-reg', 'eq-pi_comp-Vol-reg',
-           'eq-pi_comp-Stab-check', 'eq-pi_comp-Vol-check',]
-
-def get_rr_analyses( data_set, model, mode):
-    fname = f'{path}/simulations/{model}/sim_{data_set}-mode={mode}.csv'
+def get_RC_analyses( model, args):
+    fname = f'{path}/simulations/{model}/sim_{args.data_set}-mode=reg.csv'
     data  = pd.read_csv( fname)
     subj_lst = data['sub_id'].unique()
-    crs = [ 'EQ', 'pi_comp']
+    b_lst = [] 
+    sub_lst = []
+    if model != 'model11':
+        outcomes = { 'rew': [], 'rew_hat': [], 
+                     'EQ': [], 'pi_comp': [],}
+    else:
+        outcomes = { 'rew': [], 'rew_hat': []}
     b_types = [ 1, 0]
-    outcomes = []
-    for b in b_types:
-        phi = [[],[]]
-        for i, cr in enumerate(crs):
-            for subj in subj_lst:
-                idx = (data['sub_id'] == subj) \
-                    & (data['b_type'] == b) 
-                cr_val = data[f'{cr}'][idx].mean()
-                phi[i].append(cr_val)
-        outcomes.append(phi)
-    return outcomes
+    b_names = [ 'Stable', 'Volatile']
+    for subj in subj_lst:
+        for b, bn in zip( b_types, b_names): 
+            for key in outcomes.keys():
+                idx = (data['sub_id'] == subj) &\
+                      (data['b_type'] == b)
+                outcomes[key].append( data[key][idx].mean())
+            b_lst.append( bn)
+            sub_lst.append( subj)
+    outcomes['Trial type'] = b_lst
+    outcomes['sub_id'] = sub_lst
+    return pd.DataFrame( outcomes)
 
-def smry_rr_analyses( outcomes, model_lst, args):
-    '''Generate parameters for each model
-    '''
-
+def smry_RC_analyses( outcomes, model_lst, args):
+    
     ## Loop to summary the feature for each model
     for model in model_lst:
-        if model != 'model11':
-            # check if the model has a record or not
-            if model not in outcomes.keys(): outcomes[model] = dict()
-            # start analyzing 
-            print( f'Analyzing {model}')
-            cum_crs = { eff: 0 for eff in eoi_rr}
-            for mode in [ 'reg', 'check']:
-                crs = get_rr_analyses( args.data_set, model, mode)
-                cum_crs[f'eq-pi_comp-Stab-{mode}'] = np.array(crs[0])
-                cum_crs[f'eq-pi_comp-Vol-{mode}']  = np.array(crs[1])
-            # record the result to the outcomes
-            for eff in eoi_rr:
-                outcomes[model][eff] = cum_crs[eff] 
-        else:
-            pass 
-    
+        # check if the model has a record or not
+        if model not in outcomes.keys(): outcomes[model] = dict()
+        # start analyzing 
+        print( f'Analyzing {model}')
+        res = get_RC_analyses( model, args)
+        outcomes[model][f'RC-anlyses'] = res
     return outcomes
 
+## Define a global Effect of interest  
 if __name__ == '__main__':
 
     ## STEP0: GET THE COMPUTATIONAL POOL, 
@@ -219,18 +174,15 @@ if __name__ == '__main__':
     except:
         outcomes = dict() 
 
-    ## STEP1: GET THE RAW DATA FEATURE
-    oucomes = smry_raw_data( outcomes, models, args)
-    
-    ## STEP2: GET THE QUANTITATIVE METRICS
+    ## STEP1: GET THE QUANTITATIVE METRICS
     outcomes = smry_quant_criteria( pool, outcomes, models, args)
     
-    ## STEP3: GET RATE DISTORTION ANALYSES
-    outcomes = smry_rr_analyses( outcomes, models, args)
+    ## STEP2: GET RATE DISTORTION ANALYSES
+    outcomes = smry_RC_analyses( outcomes, models, args)
 
-    ## STEP4: GET PARAMS SUMMARY
+    ## STEP3: GET PARAMS SUMMARY
     outcomes = smry_params( outcomes, models, args)
     
-    ## STEP5: SAVE THE OUTCOMES
+    ## STEP4: SAVE THE OUTCOMES
     with open( fname, 'wb')as handle:
         pickle.dump( outcomes, handle)
