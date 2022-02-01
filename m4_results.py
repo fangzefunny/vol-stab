@@ -25,7 +25,7 @@ sns.set_style("whitegrid", {'axes.grid' : False})
 dpi = 250
 
 def viz_task():
-    plt.figure( figsize=( 6.5, 2.5))
+    plt.figure( figsize=( 4, 4))
     plt.plot( np.arange(1,91), np.ones([90])*.7,
                 '--', color=Blue, linewidth=2)
     plt.fill_between( np.arange(1,91), np.ones([90])*1,
