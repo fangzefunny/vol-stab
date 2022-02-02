@@ -125,7 +125,8 @@ def get_RC_analyses( model, args):
     sub_lst = []
     if model != 'model11':
         outcomes = { 'rew': [], 'rew_hat': [], 
-                     'EQ': [], 'pi_comp': [],}
+                     'EQ':  [], 'pi_comp': [],
+                     'rt':  []}
     else:
         outcomes = { 'rew': [], 'rew_hat': []}
     b_types = [ 1, 0]
@@ -151,7 +152,7 @@ def smry_RC_analyses( outcomes, model_lst, args):
         # start analyzing 
         print( f'Analyzing {model}')
         res = get_RC_analyses( model, args)
-        outcomes[model][f'RC-anlyses'] = res
+        outcomes[model][f'RC-analyses'] = res
     return outcomes
 
 ## Define a global Effect of interest  

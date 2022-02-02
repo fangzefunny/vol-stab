@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns 
 
 from scipy.stats import ttest_ind
+from scipy.optimize import curve_fit
 
 # find the current path
 path = os.path.dirname(os.path.abspath(__file__))
@@ -59,9 +60,8 @@ def viz_task():
     plt.tight_layout()
     plt.savefig( f'{path}/figures/experiment_paradigm.png', dpi=dpi)
     
-
 def viz_fit_goodness( outcomes, model):
-    data = outcomes[model]['RC-anlyses']
+    data = outcomes[model]['RC-analyses']
     crs  = [ 'rew', 'rew_hat']
     subj = [ 'human', 'model']
     fig, axs = plt.subplots( 1, 2, figsize=( 6, 2.5))
@@ -77,10 +77,24 @@ def viz_fit_goodness( outcomes, model):
         ax.set_ylim([ .2, .8])
     plt.tight_layout()
 
+para = lambda x, a, b, c: a*x**2+b*x+c
+
+def get_para( data):
+    lst = [] 
+    cond = ['Stable', 'Volatile']
+    for cd in cond:
+        ind = data['Trial type'] == cd
+        x1 = data['pi_comp'][ind]
+        y1 = data['rew_hat'][ind] 
+        (a1,b1,c1), pcov = curve_fit( para, x1, y1)
+        lst.append( para( np.arange( 0, 1,.05), a1, b1, c1))
+    return lst
+    
 def viz_RC_anlyses( outcomes, model):
     '''Show the rate-distortion curve 
     '''
-    data = outcomes[model]['RC-anlyses']
+    data = outcomes[model]['RC-analyses']
+    para1, para2 = get_para(data)
     fig, axs = plt.subplots( 2, 2, figsize=( 6, 5))
     # rate distortion curve
     ax = axs[ 0, 0]
@@ -88,6 +102,7 @@ def viz_RC_anlyses( outcomes, model):
                     palette=[ Blue, Red],
                     s=90, hue='Trial type', 
                     legend=True, ax=ax)
+    
     #ax.legend( title='block type', labels=['Stable', 'Volatile'], fontsize=10)
     ax.set_xlabel('Avg. policy complexity', fontsize=16)
     ax.set_ylabel('Avg. expected reward', fontsize=16)
@@ -98,6 +113,10 @@ def viz_RC_anlyses( outcomes, model):
                     palette=[ Blue, Red],
                     s=90, hue='Trial type', 
                     legend=False, ax=ax)
+    ax.plot( np.arange( 0, 1,.05), para1, 
+            color='k', linewidth=2)
+    ax.plot( np.arange( 0, 1,.05), para2, '--',
+            color='k', linewidth=2)
     #ax.legend( title='block type', labels=['Stable', 'Volatile'], fontsize=10)
     ax.set_xlabel('Avg. policy complexity', fontsize=16)
     ax.set_ylabel('Avg. actual reward', fontsize=16)
@@ -146,8 +165,8 @@ def viz_params( outcomes, model):
         ax.set_xticklabels( ['Stable', 'Volatile'],fontsize=14)
         ax.set_xlabel('')
         ax.set_ylabel( params_name[i],fontsize=16)
-        ax = axs[1, 1]
-        ax.set_axis_off()
+    ax = axs[ 1, 1]
+    ax.set_axis_off()
     fig.tight_layout()
 
 def ttest( data, col, name):
@@ -163,7 +182,7 @@ def t_tests( outcomes, model):
     cols  = ['rew', 'rew_hat']
     names = [ 'human reward', 'model reward']
     for col, name in zip( cols, names):
-        ttest( data['RC-anlyses'], col, name)
+        ttest( data['RC-analyses'], col, name)
     ## Test for figure 2
     cols  = ['alpha_s', 'alpha_a', 'beta']
     names = cols
@@ -171,29 +190,29 @@ def t_tests( outcomes, model):
         ttest( data['params'], col, name)
     ## Test for figure 3
     if model != 'model11':
-        cols  = [ 'pi_comp', 'rew_hat']
+        cols  = [ 'pi_comp', 'rew_hat'] 
         names = [ 'policy complexity', 'actual reward']
         for col, name in zip( cols, names):
-            ttest( data['RC-anlyses'], col, name)
+            ttest( data['RC-analyses'], col, name)
 
 if __name__ == '__main__':
 
     ## Show experiment paradigm
     viz_task()
 
-    # ## Analyze the data 
-    # datasets = ['exp1_rew']
-    # models   = ['RDModel2', 'model11']
-    # for dataset in datasets:
-    #     for model in models:
-    #         fname = f'{path}/analyses/analyses-{dataset}.pkl'
-    #         with open( fname, 'rb')as handle:
-    #                 outcomes = pickle.load( handle)
-    #         viz_fit_goodness( outcomes, model)
-    #         plt.savefig( f'{path}/figures/fit_validate-{dataset}-model={model}.png', dpi=500) 
-    #         viz_params( outcomes, model)
-    #         plt.savefig( f'{path}/figures/param_smary-{dataset}-model={model}.png', dpi=500) 
-    #         if model != 'model11':
-    #             viz_RC_anlyses( outcomes, model)
-    #             plt.savefig( f'{path}/figures/RD_curves-{dataset}-model={model}.png', dpi=500) 
-    #         t_tests( outcomes, model)
+    ## Analyze the data 
+    datasets = ['exp1_rew']
+    models   = ['RDModel2']
+    for dataset in datasets:
+        for model in models:
+            fname = f'{path}/analyses/analyses-{dataset}.pkl'
+            with open( fname, 'rb')as handle:
+                    outcomes = pickle.load( handle)
+            viz_fit_goodness( outcomes, model)
+            plt.savefig( f'{path}/figures/fit_validate-{dataset}-model={model}.png', dpi=500) 
+            viz_params( outcomes, model)
+            plt.savefig( f'{path}/figures/param_smary-{dataset}-model={model}.png', dpi=500) 
+            if model != 'model11':
+                viz_RC_anlyses( outcomes, model)
+                plt.savefig( f'{path}/figures/RD_curves-{dataset}-model={model}.png', dpi=500) 
+            t_tests( outcomes, model)
