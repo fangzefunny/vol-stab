@@ -506,10 +506,6 @@ class SMModel2( SMModel):
         self.pi = softmax( f_a1s, axis=1)
         # marginal over state 
         self.P_a = ( self.p_s.T @ self.pi).reshape([-1])
-    
-#==========================
-#        Base Agent
-#==========================
 
 class NM( Basebrain):
     '''Normative model
@@ -683,3 +679,7 @@ class SMa( SM):
         self.update_Ps()
         self.update_Pa()
         self.update_tau()
+
+#==========================
+#        Bayes Agent
+#==========================
