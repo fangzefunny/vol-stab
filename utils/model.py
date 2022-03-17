@@ -125,9 +125,9 @@ class subj:
         agent= self.agent( state_dim, action_dim, self.rng, params) 
         
         ## init a blank dataframe to store simulation
-        col = [ 'action', 'rew', 'p_s', 
-                'pi_0', 'pi_1', 'nll', 'q_a',
-                'pi_comp', 'psi_comp', 'EQ']
+        col = [ 'rew', 'rew_hat', 'p_s',
+                'pi_0', 'pi_1', 'q_a',
+                'nll', 'pi_comp', 'EQ']
         init_mat = np.zeros([ data.shape[0], len(col)]) + np.nan
         pred_data = pd.DataFrame( init_mat, columns=col)  
 
@@ -145,12 +145,14 @@ class subj:
             agent.plan_act()
             act   = int( data.action[t])
             rew   = obs[ act]
+            rew_hat = rew*agent.P_a[ act] if rew>0 else obs[1-act]*agent.P_a[1-act]
             
             # evaluate: log π(a|xt)
             nll = - np.log( agent.eval_act( act) + eps_)
 
             # record some vals
             pred_data['rew'][t]       = rew
+            pred_data['rew_hat'][t]   = rew_hat
             pred_data['p_s'][t]       = agent.p_s[ 0, 0]
             pred_data['nll'][t]       = nll
 
