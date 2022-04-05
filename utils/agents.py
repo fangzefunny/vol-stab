@@ -448,6 +448,74 @@ class RDModel2( RDModel):
         self.update_Ps()
         self.update_Pa()
 
+class RDModel2_exp( RDModel2):
+
+    def __init__( self, nS, nA, rng, params=[]):
+        super().__init__( nS, nA, rng)
+        if len( params):
+            self._load_free_params( params)
+    
+    def _load_free_params( self, params):
+        # params for stab
+        self.alpha_s_stab = params[0] # learning rate for p(s)
+        self.alpha_a_stab = params[1] # learning rate for p(a)
+        self.beta_stab    = params[2] # inverse temp  
+        # params for wol 
+        self.alpha_s_vol  = params[3] # learning rate for p(s)
+        self.alpha_a_vol  = params[4] # learning rate for p(a) 
+        self.beta_vol     = params[5] # inverse temp
+        # general 
+        self.beta         = params[6]
+
+    def plan_act(self):
+        # retrieve memory
+        ctxt = self.memory.sample( 'ctxt')[0]
+        # choose parameter set 
+        beta = self.beta_stab if ctxt else self.beta_vol
+        # construct utility function 
+        u_sa = self.get_U()
+        # pi(a|s) ∝ exp( βU(s,a) + log q(a))
+        f_a1s   = beta * u_sa + np.log( self.q_a.T + eps_)
+        self.pi = softmax( f_a1s, axis=1)
+        # marginal over state 
+        self.P_a = (softmax( self.beta * self.p_s.T @ self.pi, 
+                            axis=1)).reshape([-1])
+
+class RDModel2_exp2( RDModel2):
+
+    def __init__( self, nS, nA, rng, params=[]):
+        super().__init__( nS, nA, rng)
+        if len( params):
+            self._load_free_params( params)
+    
+    def _load_free_params( self, params):
+        # params for stab
+        self.alpha_s_stab = params[0] # learning rate for p(s)
+        self.alpha_a_stab = params[1] # learning rate for p(a)
+        self.beta_stab    = params[2] # inverse temp  
+        # params for wol 
+        self.alpha_s_vol  = params[3] # learning rate for p(s)
+        self.alpha_a_vol  = params[4] # learning rate for p(a) 
+        self.beta_vol     = params[5] # inverse temp
+        # general 
+        self.beta         = params[6]
+
+    def plan_act(self):
+        # retrieve memory
+        ctxt = self.memory.sample( 'ctxt')[0]
+        # choose parameter set 
+        beta = self.beta_stab if ctxt else self.beta_vol
+        # construct utility function 
+        u_sa = self.get_U()
+        # pi(a|s) ∝ exp( βU(s,a) + log q(a))
+        f_a1s   = beta * u_sa + np.log( self.q_a.T + eps_)
+        f_a1s[ 0, 1] = 0
+        f_a1s[ 1, 0] = 0 
+        self.pi = softmax( f_a1s, axis=1)
+        # marginal over state 
+        self.P_a = (softmax( self.beta * self.p_s.T @ self.pi, 
+                            axis=1)).reshape([-1])
+
 class RDModel3( RDModel2):
     
     def __init__( self, nS, nA, rng, params=[]):

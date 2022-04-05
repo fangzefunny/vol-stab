@@ -30,6 +30,16 @@ def set_hyperparams(args):
                              ( 0, 1), ( 0, 1), ( 0, 20),)
         args.params_name = [ 'α_s_stab', 'α_a_stab', 'β_stab',
                              'α_s_vol',  'α_a_vol',  'β_vol',]
+    elif args.agent_name == 'RDModel2_exp':
+        args.bnds        = ( ( 0, 1), ( 0, 1), ( 0, 40),
+                             ( 0, 1), ( 0, 1), ( 0, 40), ( 0, 40))
+        args.params_name = [ 'α_s_stab', 'α_a_stab', 'β_stab',
+                             'α_s_vol',  'α_a_vol',  'β_vol', 'β']
+    elif args.agent_name == 'RDModel2_exp2':
+        args.bnds        = ( ( 0, 1), ( 0, 1), ( 0, 40),
+                             ( 0, 1), ( 0, 1), ( 0, 40), ( 0, 40))
+        args.params_name = [ 'α_s_stab', 'α_a_stab', 'β_stab',
+                             'α_s_vol',  'α_a_vol',  'β_vol', 'β']
     elif args.agent_name == 'RDModel3':
         args.bnds        = ( ( 0, 1), ( 0, 1), ( 0, 100),
                              ( 0, 1), ( 0, 1), ( 0, 100),

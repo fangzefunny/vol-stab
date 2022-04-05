@@ -21,7 +21,7 @@ parser.add_argument('--fit_num', '-f', help='fit times', type = int, default=1)
 parser.add_argument('--data_set', '-d', help='which_data', type = str, default='exp1_rew')
 parser.add_argument('--loss_fn', '-l', help='fitting methods', type = str, default='mle')
 parser.add_argument('--group', '-g', help='fit to ind or fit to the whole group', type=str, default='ind')
-parser.add_argument('--agent_name', '-n', help='choose agent', default='RDModel2')
+parser.add_argument('--agent_name', '-n', help='choose agent', default='RDModel2_exp')
 parser.add_argument('--cross_valid', '-k', help='do cross validatio or not', default=0)
 parser.add_argument('--n_cores', '-c', help='number of CPU cores used for parallel computing', 
                                             type=int, default=0)
@@ -100,8 +100,9 @@ def fit_parallel( data, pool, model, verbose, args):
         
     ## Save the params + nll + aic + bic 
     col = args.params_name + [ 'nll', 'aic', 'bic']
+    print( f'   nll: {fit_mat[0, -3]:.4f}')
     fit_res = pd.DataFrame( fit_mat, columns=col)
-
+    
     return fit_res 
 
 def fit( data, args):
@@ -121,12 +122,15 @@ def fit( data, args):
 
     ## Fit params to each individual 
     if args.group == 'ind':
+        done_subj = 0
+        all_subj  = len(data.keys())
         for sub_idx in data.keys():
             sub_data = { f'{sub_idx}': data[ sub_idx]}
-            print( f'Fitting subject {sub_idx}')
+            print( f'Fitting subject {sub_idx}, progress: {(done_subj*100)/all_subj:.2f}%')
             fit_res = fit_parallel( sub_data, pool, model, False, args)
             pname = f'{path}/fits/{args.agent_name}/params-{args.data_set}-{sub_idx}.csv'
             fit_res.to_csv( pname)
+            done_subj += 1
 
     ## Fit params to the population level
     elif args.group == 'avg':
