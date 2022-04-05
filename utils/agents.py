@@ -895,6 +895,8 @@ class BayesLearner( Basebrain):
         self.P_a = ( self.p_s.T @ self.pi).reshape([-1])
 
     def Bayes_update(self, var_, y):
+        '''update δ with y 
+        '''
         dist = eval(f'self.{var_}')
         # get p(yt|rt): dim: rt
         p_y1r = bernoulli.pmf( y, self.r_space)
@@ -916,8 +918,6 @@ class BayesLearner( Basebrain):
         return (dist['delta'].sum(axis=(0,2))*self.r_space).sum()
         
     def update_Ps( self):
-        '''update δ with y 
-        '''
         # retrieve memory
         state = self.memory.sample( 'state')[0]
         prob_s = self.Bayes_update( 'S', 1-state)
