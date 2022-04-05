@@ -31,12 +31,12 @@ def set_hyperparams(args):
         args.params_name = [ 'α_s_stab', 'α_a_stab', 'β_stab',
                              'α_s_vol',  'α_a_vol',  'β_vol',]
     elif args.agent_name == 'RDModel3':
-        args.bnds        = ( ( 0, 1), ( 0, 1), ( 0, 20),
-                             ( 0, 1), ( 0, 1), ( 0, 20),
-                             ( 0, 1),)
+        args.bnds        = ( ( 0, 1), ( 0, 1), ( 0, 100),
+                             ( 0, 1), ( 0, 1), ( 0, 100),
+                             ( 0, 100),)
         args.params_name = [ 'α_s_stab', 'α_a_stab', 'β_stab',
                              'α_s_vol',  'α_a_vol',  'β_vol',
-                             'r']
+                             'w']
     elif args.agent_name == 'SMModel':
         args.bnds        = ( ( 0, 1), ( 0, 20),
                              ( 0, 1), ( 0, 20),)
@@ -74,6 +74,13 @@ def set_hyperparams(args):
         args.params_name = [ 'α_s_stab', 'α_s_vol', 'β_stab',
                              'α_a_stab', 'α_a_vol', 'β_vol',
                              'λ', 'r', 'β_a']
+    elif args.agent_name == 'model11_new':
+        args.bnds        = ( ( 0, 1), ( 0,  1), ( 0,  20), 
+                             ( 0, 1), ( 0,  1), ( 0,  20), 
+                             ( 0, 1), ( 0,  1), ( 0,  20), (0, 1))
+        args.params_name = [ 'α_s_stab', 'α_s_vol', 'β_stab',
+                             'α_a_stab', 'α_a_vol', 'β_vol',
+                             'λ', 'r', 'β_a', 'w']
 
     # basic 
     elif args.agent_name == 'NM':
@@ -117,6 +124,11 @@ def set_hyperparams(args):
                              'α_s_vol',  'α_a_vol',  'α_τ_vol', 
                              'k', 'τ0']
                              
+    ## Bayesian learner 
+    elif args.agent_name == 'BayesLearner':
+        args.bnds        = ( ( 1/20, 30), ( 1/20, 30))
+        args.params_name = [ 'β_stab', 'β_vol']
+    
     # if there is input initialization, we do not need to
     # random the intialization 
     if len(args.init) > 0:

@@ -6,7 +6,7 @@ from pandas.core.common import SettingWithCopyWarning
 warnings.simplefilter(action="ignore", category=SettingWithCopyWarning)
 from scipy.optimize import minimize
 
-eps_ = 1e-18
+eps_ = 1e-12
 max_ = 1e+8
 
 class subj:

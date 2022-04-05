@@ -6,7 +6,7 @@ python m0_preprocess.py
 ## declare all models and all data sets
 declare data_sets=("exp1_rew")
 declare groups=("ind")
-declare models=("RDModel2" "model11")
+declare models=("BayesLearner")
 
 ## step 1: fit the model
 for data_set in "${data_sets[@]}"; do 

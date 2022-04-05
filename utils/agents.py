@@ -1,6 +1,9 @@
+from ast import If
 import numpy as np
-from numpy.core.fromnumeric import argmax 
-from scipy.special import softmax, logsumexp 
+from numpy.core.fromnumeric import argmax
+from pandas import isna 
+from scipy.special import softmax, logsumexp
+from scipy.stats import norm, bernoulli, beta 
 from utils.rate_dist import RD, I
 
 # get the machine epsilon
@@ -53,7 +56,9 @@ class Basebrain:
 
     def _init_beliefs( self):
         self.p_s   = np.ones( [ self.nS, 1]) / self.nS 
+        self.v_s   = np.ones( [ self.nS, 1]) / self.nS
         self.q_a   = np.ones( [ self.nA, 1]) / self.nA 
+        self.v_a   = np.ones( [ self.nA, 1]) / self.nA 
         self.P_a   = np.ones( [ self.nA,]) / self.nA
         self.pi    = None 
 
@@ -288,6 +293,47 @@ class model11( model7):
         # choice probability
         self.P_a = np.array( [ pit, 1 - pit]) 
 
+class model11_new(model11):
+
+    def __init__( self, state_dim, act_dim, rng, params=[]):
+        super().__init__( state_dim, act_dim, rng)
+        if len( params):
+            self._load_free_params( params)
+
+    def _load_free_params(self, params):
+        # stab
+        self.alpha_s_stab = params[0] # learning rate of p(s) for stab task 
+        self.alpha_a_stab = params[1] # learning rate of q(a) for stab task 
+        self.beta_stab    = params[2] # inverse temperature for stab task 
+        # vol 
+        self.alpha_s_vol  = params[3] # learning rate of p(s) for vol task 
+        self.alpha_a_vol  = params[4] # learning rate of q(a) for vol task 
+        self.beta_vol     = params[5] # inverse temperature for vol task 
+        # general
+        self.lam          = params[6] # mixture of prob and mag
+        self.r            = params[7] # nonlinearity 
+        self.beta_a       = params[8] # inverse temperature for choice kernel
+        self.w            = params[9] # trust on the model
+
+    def plan_act(self):
+        # retrieve memory
+        ctxt, obs = self.memory.sample( 'ctxt', 'obs')
+        # unpack observation
+        mag0, mag1 = obs
+        p_s = (1-self.w)*1/self.nS + self.w*self.p_s 
+        pt = p_s[ 0, 0] 
+        # choose parameter set 
+        beta = self.beta_stab if ctxt else self.beta_vol
+        # mixture of probability and magnitude 
+        vt = self.lam * (pt - ( 1 - pt)) + ( 1 - self.lam) * \
+              abs( mag0 - mag1) ** self.r * np.sign( mag0 - mag1)
+        # softmax action selection 
+        pit = 1 / ( 1 + np.exp( - ( beta * vt + 
+                  self.beta_a * ( self.q_a[ 0, 0] - self.q_a[ 1, 0])))) 
+        # choice probability
+        self.P_a = np.array( [ pit, 1 - pit]) 
+
+
 #==========================
 #       Cog Agent
 #==========================
@@ -418,21 +464,34 @@ class RDModel3( RDModel2):
         self.alpha_s_vol  = params[3] # learning rate for p(s)
         self.alpha_a_vol  = params[4] # learning rate for p(a) 
         self.beta_vol     = params[5] # inverse temp
-        # n
-        self.r            = params[6] # nonlinearity
+        # model-based & model-free 
+        self.ws           = params[6] # trust on model 
+        self.wa           = params[7] 
 
-    def plan_act(self):
+    def update_Ps( self):
         # retrieve memory
-        ctxt = self.memory.sample( 'ctxt')[0]
+        ctxt, state = self.memory.sample( 'ctxt', 'state')
         # choose parameter set 
-        beta = self.beta_stab if ctxt else self.beta_vol
-        # construct utility function 
-        u_sa = self.get_U()
-        # pi(a|s) ∝ exp( βU(s,a) + log q(a))
-        f_a1s   = beta * (u_sa**self.r) + np.log( self.q_a.T + eps_)
-        self.pi = softmax(  f_a1s, axis=1)
-        # marginal over state 
-        self.P_a = ( self.p_s.T @ self.pi).reshape([-1])
+        alpha_s = self.alpha_s_stab if ctxt else self.alpha_s_vol
+        ## Update p_s
+        # δ = 1 - v(s)
+        rpe = 1 - self.v_s[state, 0] 
+        # v(s) = v(s) + α_s * δ
+        self.v_s[state, 0] += alpha_s * rpe
+        # p(s) ∝ exp( w v(s))
+        self.p_s = softmax( self.w * self.v_s, axis=0)
+    
+    def update_Pa( self):
+        # retrieve memory
+        ctxt, act = self.memory.sample( 'ctxt', 'act')
+         # choose parameter set 
+        alpha_a = self.alpha_a_stab if ctxt else self.alpha_a_vol
+        ## Update p_a
+        rpe = 1 - self.v_a[act, 0] 
+        # v(s) = v(s) + α_s * δ
+        self.v_a[act, 0] += alpha_a * rpe 
+        # p(s) ∝ exp( w v(s))
+        self.q_a = softmax( self.w * self.v_a, axis=0)
 
 class SMModel( Basebrain):
     
@@ -666,7 +725,7 @@ class SMa( SM):
         self.alpha_s_stab = params[0] # learning rate for p(s)
         self.alpha_a_stab = params[1]
         self.alpha_t_stab = params[2] # learning rate for τ
-        # params for wol 
+        # params for vol 
         self.alpha_s_vol  = params[3] # learning rate for p(s)
         self.alpha_a_vol  = params[4] # learning rate for τ
         self.alpha_t_vol  = params[5] 
@@ -680,6 +739,138 @@ class SMa( SM):
         self.update_Pa()
         self.update_tau()
 
-#==========================
+#--------------------------
 #        Bayes Agent
-#==========================
+#--------------------------
+
+def rbeta( r, v):
+    '''Reparameterized beta
+    r = a / (a+b)
+    v = -log(a+b)
+    '''
+    a = r*np.exp(-v)
+    b = np.exp(-v)*(1-r)
+    return beta( a, b)
+
+class BayesLearner( Basebrain):
+
+    def __init__( self, nS, nA, rng, params=[]):
+        super().__init__( nS, nA, rng)
+        if len( params):
+            self._load_free_params( params)
+        self._init_dists()
+
+    def _load_free_params( self, params):
+        self.beta_stab   = params[0] # stable beta 
+        self.beta_vol    = params[1] # vol beta 
+
+    def _init_dists(self):
+        self._discretize()
+        self.S, self.A = {}, {} 
+        dists_name = ['p_V1VK', 'p_R1VR', 'delta']
+        for d in [self.S, self.A]:
+            for dist in dists_name:
+                d[dist] = eval( f'self._init_{dist}')()
+
+    def _discretize( self,):
+        '''Discretize all variables
+            r: the expectation of bernoulli dist 
+            v: indicates the variation of bernoulli ,
+            k: the variance of volatitity
+            Default dim convention:
+            dim: yt, vt, rt, vt-1, rt-1, k
+        '''
+        # get discerete space 
+        self.n_split = 20 
+        self.r_space = np.linspace( .01, .99, self.n_split)
+        self.v_space = np.linspace( -11,  -2, self.n_split)
+        self.k_space = np.linspace(  -2,   2, self.n_split)
+
+    def _init_p_V1VK( self,):
+        '''p(Vt|Vt-1=i,k) = N( i, exp(k))
+        '''
+        p_V1VK = np.zeros( [ self.n_split, self.n_split, self.n_split])
+        for i, vi in enumerate( self.v_space):
+            for k, kk in enumerate( self.k_space):
+                p_V1VK[ :, i, k] = norm.pdf( self.v_space, loc=vi, scale=np.exp(kk))
+        p_V1VK /= p_V1VK.sum(0,keepdims=True)
+        return p_V1VK
+
+    def _init_p_R1VR( self):
+        '''p(Rt|Vt-1=i,Rt-1=j) = rBeta(j,i)
+        '''
+        p_R1VR = np.zeros( [ self.n_split, self.n_split, self.n_split])
+        for j, rj in enumerate( self.r_space):
+            for i, vi in enumerate( self.v_space):
+                p_R1VR[ :, i, j] = rbeta( rj, vi).pdf(self.r_space)
+        p_R1VR /= p_R1VR.sum(0,keepdims=True)
+        return p_R1VR
+
+    def _init_delta( self,):
+        '''δ0(vi,rj,kk)
+            Init with Perks prior 
+        '''
+        f_VRK =  np.ones( [ self.n_split, self.n_split, self.n_split])
+        return f_VRK / f_VRK.sum()
+
+    def plan_act(self):
+        # retrieve memory
+        ctxt = self.memory.sample( 'ctxt')[0]
+        # choose parameter set 
+        beta = self.beta_stab if ctxt else self.beta_vol
+        # construct utility function 
+        u_sa = self.get_U()
+        # pi(a|s) ∝ exp( βU(s,a) + log q(a))
+        f_a1s   = beta * u_sa + np.log( self.q_a.T + eps_)
+        self.pi = softmax(  f_a1s, axis=1)
+        # marginal over state 
+        self.P_a = ( self.p_s.T @ self.pi).reshape([-1])
+
+    def Bayes_update(self, var_, y):
+        dist = eval(f'self.{var_}')
+        # get p(yt|rt): dim: rt
+        p_y1r = bernoulli.pmf( y, self.r_space)
+        # ∑i p(vt|vt-1=i, k) δ(i,rt-1,k)
+        # dim: vt vt-1 @ vt-1, rt-1 --> vt, rt-1
+        delta1 = np.zeros( [self.n_split]*3) 
+        for k in range(self.n_split):
+            delta1[:,:,k] = dist['p_V1VK'][:,:,k] @ dist['delta'][:,:,k]
+        # ∑j p(rt|vt, rt-1=j) δ(vt,j,k)
+        # dim:  rt rt-1 @ rt-1, k = rt k 
+        delta2 = np.zeros( [self.n_split]*3) 
+        for i in range(self.n_split):
+            delta2[i,:,:] = dist['p_R1VR'][:,i,:]@delta1[i,:,:]
+        # δ(vt,j,k) * p(y|rt=j)
+        # get new delta: vt, rt, k
+        delta = p_y1r[ np.newaxis, :, np.newaxis] * delta2
+        dist['delta'] = delta / delta.sum()
+        # get some prediction
+        return (dist['delta'].sum(axis=(0,2))*self.r_space).sum()
+        
+    def update_Ps( self):
+        '''update δ with y 
+        '''
+        # retrieve memory
+        state = self.memory.sample( 'state')
+        prob_s = self.Bayes_update( 'S', state)
+        self.p_s = np.array( [[ prob_s, 1-prob_s]]).T #nSx1
+    
+    def update_Pa( self):
+        # retrieve memory
+        act = self.memory.sample( 'act')
+        prob_a = self.Bayes_update( 'A', act)
+        self.p_a = np.array( [[ prob_a, 1-prob_a]]).T #nAx1
+
+    def update( self):
+        ## Retrieve memory
+        self.update_Ps()
+        self.update_Pa()
+    
+    def pi_comp(self):
+        return np.sum( self.p_s * self.pi * 
+                       ( np.log( self.pi + eps_) 
+                       - np.log( self.q_a.T + eps_)))
+    
+    def EQ( self):
+        u_sa = self.get_U()
+        return np.sum( self.p_s * self.pi * u_sa)
