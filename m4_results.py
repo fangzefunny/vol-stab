@@ -94,7 +94,9 @@ def viz_RC_anlyses( outcomes, model):
     '''Show the rate-distortion curve 
     '''
     data = outcomes[model]['RC-analyses']
-    para1, para2 = get_para(data)
+    #para1, para2 = get_para(data)
+    opt_stab_comp, opt_vol_comp = outcomes['opt_stab_comp'], outcomes['opt_vol_comp']
+    opt_stab_rew, opt_vol_rew   = outcomes['opt_stab_rew'], outcomes['opt_vol_rew']
     fig, axs = plt.subplots( 2, 2, figsize=( 6, 5))
     # rate distortion curve
     ax = axs[ 0, 0]
@@ -113,9 +115,9 @@ def viz_RC_anlyses( outcomes, model):
                     palette=[ Blue, Red],
                     s=90, hue='Trial type', 
                     legend=False, ax=ax)
-    ax.plot( np.arange( 0, 1,.05), para1, 
+    ax.plot( opt_stab_comp, opt_stab_rew, 
             color='k', linewidth=2)
-    ax.plot( np.arange( 0, 1,.05), para2, '--',
+    ax.plot( opt_vol_comp, opt_vol_rew, '--',
             color='k', linewidth=2)
     #ax.legend( title='block type', labels=['Stable', 'Volatile'], fontsize=10)
     ax.set_xlabel('Avg. policy complexity', fontsize=16)
@@ -198,7 +200,7 @@ def t_tests( outcomes, model):
 if __name__ == '__main__':
 
     ## Show experiment paradigm
-    viz_task()
+    #viz_task()
 
     ## Analyze the data 
     datasets = ['exp1_rew']

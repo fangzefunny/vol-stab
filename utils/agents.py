@@ -781,7 +781,7 @@ class BayesLearner( Basebrain):
             dim: yt, vt, rt, vt-1, rt-1, k
         '''
         # get discerete space 
-        self.n_split = 20 
+        self.n_split = 30 
         self.r_space = np.linspace( .01, .99, self.n_split)
         self.v_space = np.linspace( -11,  -2, self.n_split)
         self.k_space = np.linspace(  -2,   2, self.n_split)
@@ -851,14 +851,14 @@ class BayesLearner( Basebrain):
         '''update δ with y 
         '''
         # retrieve memory
-        state = self.memory.sample( 'state')
-        prob_s = self.Bayes_update( 'S', state)
+        state = self.memory.sample( 'state')[0]
+        prob_s = self.Bayes_update( 'S', 1-state)
         self.p_s = np.array( [[ prob_s, 1-prob_s]]).T #nSx1
     
     def update_Pa( self):
         # retrieve memory
-        act = self.memory.sample( 'act')
-        prob_a = self.Bayes_update( 'A', act)
+        act = self.memory.sample( 'act')[0]
+        prob_a = self.Bayes_update( 'A', 1-act)
         self.p_a = np.array( [[ prob_a, 1-prob_a]]).T #nAx1
 
     def update( self):

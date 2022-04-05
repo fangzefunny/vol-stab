@@ -7,6 +7,7 @@ import multiprocessing as mp
 
 from utils.analyze import *
 from utils.agents import *
+from utils.model import subj
 
 # define path
 path = os.path.dirname(os.path.abspath(__file__))
@@ -155,6 +156,49 @@ def smry_RC_analyses( outcomes, model_lst, args):
         outcomes[model][f'RC-analyses'] = res
     return outcomes
 
+
+def get_opt( outcomes):
+
+    # prepare data 
+    with open(f'{path}/data/{args.data_set}.pkl', 'rb') as handle:
+        data = pickle.load( handle)
+    stab_vol = {'cb1': data['cb1']}
+    vol_stab = {'cb3': data['cb3']}
+
+    # define model 
+    model = subj( BayesLearner)
+    # get beta
+    n_beta = 5
+    betas_stab = np.linspace( 0.01, 10, n_beta)
+    betas_vol  = np.linspace( 0.01, 10, n_beta)
+    stab_rew   = np.zeros( [n_beta, n_beta])
+    stab_comp  = np.zeros( [n_beta, n_beta])
+    vol_rew    = np.zeros( [n_beta, n_beta])
+    vol_comp   = np.zeros( [n_beta, n_beta])
+    param_idx  = np.zeros( [n_beta, n_beta])
+    t = 1
+    for i, b_stab in enumerate( betas_stab):
+        for j, b_vol in enumerate( betas_vol):
+            print(f'b1={b_stab:.3f}, b2={b_vol:.3f}')
+            # params 
+            params = [ b_stab, b_vol]
+            # predict
+            outcome1 = model.predict( stab_vol, params)
+            outcome2 = model.predict( vol_stab, params)
+            out_con = pd.concat( [ outcome1, outcome2], axis=0)
+            stab_rew[ i, j]  = out_con.query( 'b_type == 0')['rew_hat'].mean()
+            stab_comp[ i, j] = out_con.query( 'b_type == 0')['pi_comp'].mean()
+            vol_rew[ i, j]   = out_con.query( 'b_type == 1')['rew_hat'].mean()
+            vol_comp[ i, j]  = out_con.query( 'b_type == 1')['pi_comp'].mean()
+            param_idx[ i, j]  = t 
+            t+=1 
+
+    outcomes['opt_stab_rew']  = stab_rew.mean(axis=1)
+    outcomes['opt_stab_comp'] = stab_comp.mean(axis=1)
+    outcomes['opt_vol_rew']   = vol_rew.mean(axis=0)
+    outcomes['opt_vol_comp']  = vol_comp.mean(axis=0)
+    return outcomes 
+
 ## Define a global Effect of interest  
 if __name__ == '__main__':
 
@@ -176,13 +220,15 @@ if __name__ == '__main__':
         outcomes = dict() 
 
     ## STEP1: GET THE QUANTITATIVE METRICS
-    outcomes = smry_quant_criteria( pool, outcomes, models, args)
+    # outcomes = smry_quant_criteria( pool, outcomes, models, args)
     
-    ## STEP2: GET RATE DISTORTION ANALYSES
-    outcomes = smry_RC_analyses( outcomes, models, args)
+    # ## STEP2: GET RATE DISTORTION ANALYSES
+    # outcomes = smry_RC_analyses( outcomes, models, args)
 
-    ## STEP3: GET PARAMS SUMMARY
-    outcomes = smry_params( outcomes, models, args)
+    # ## STEP3: GET PARAMS SUMMARY
+    # outcomes = smry_params( outcomes, models, args)
+
+    outcomes = get_opt( outcomes)
     
     ## STEP4: SAVE THE OUTCOMES
     with open( fname, 'wb')as handle:
