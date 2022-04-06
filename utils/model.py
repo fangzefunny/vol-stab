@@ -183,14 +183,3 @@ class subj:
         # print( f'Stab beta: {agent.beta_stab}; Vol beta: {agent.beta_vol}')
         # print( f'Stab Pi Comp: {pi_comp1}; Vol Pi Comp: {pi_comp2}')    
         return data
-
-
-
-
-
-
-
-
-            
-
-
