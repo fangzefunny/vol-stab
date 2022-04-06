@@ -168,15 +168,13 @@ def get_opt( outcomes):
     # define model 
     model = subj( BayesLearner)
     # get beta
-    n_beta = 5
+    n_beta = 20
     betas_stab = np.linspace( 0.01, 10, n_beta)
     betas_vol  = np.linspace( 0.01, 10, n_beta)
     stab_rew   = np.zeros( [n_beta, n_beta])
     stab_comp  = np.zeros( [n_beta, n_beta])
     vol_rew    = np.zeros( [n_beta, n_beta])
     vol_comp   = np.zeros( [n_beta, n_beta])
-    param_idx  = np.zeros( [n_beta, n_beta])
-    t = 1
     for i, b_stab in enumerate( betas_stab):
         for j, b_vol in enumerate( betas_vol):
             print(f'b1={b_stab:.3f}, b2={b_vol:.3f}')
@@ -186,12 +184,10 @@ def get_opt( outcomes):
             outcome1 = model.predict( stab_vol, params)
             outcome2 = model.predict( vol_stab, params)
             out_con = pd.concat( [ outcome1, outcome2], axis=0)
-            stab_rew[ i, j]  = out_con.query( 'b_type == 0')['rew_hat'].mean()
-            stab_comp[ i, j] = out_con.query( 'b_type == 0')['pi_comp'].mean()
-            vol_rew[ i, j]   = out_con.query( 'b_type == 1')['rew_hat'].mean()
-            vol_comp[ i, j]  = out_con.query( 'b_type == 1')['pi_comp'].mean()
-            param_idx[ i, j]  = t 
-            t+=1 
+            stab_rew[ i, j]  = out_con.query( 'b_type == 1')['rew_hat'].mean()
+            stab_comp[ i, j] = out_con.query( 'b_type == 1')['pi_comp'].mean()
+            vol_rew[ i, j]   = out_con.query( 'b_type == 0')['rew_hat'].mean()
+            vol_comp[ i, j]  = out_con.query( 'b_type == 0')['pi_comp'].mean()
 
     outcomes['opt_stab_rew']  = stab_rew.mean(axis=1)
     outcomes['opt_stab_comp'] = stab_comp.mean(axis=1)
