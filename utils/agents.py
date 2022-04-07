@@ -528,38 +528,26 @@ class RDModel3( RDModel2):
         self.alpha_s_stab = params[0] # learning rate for p(s)
         self.alpha_a_stab = params[1] # learning rate for p(a)
         self.beta_stab    = params[2] # inverse temp  
+        self.tau_stab     = params[3] # trust on model 
         # params for wol 
-        self.alpha_s_vol  = params[3] # learning rate for p(s)
-        self.alpha_a_vol  = params[4] # learning rate for p(a) 
-        self.beta_vol     = params[5] # inverse temp
-        # model-based & model-free 
-        self.ws           = params[6] # trust on model 
-        self.wa           = params[7] 
+        self.alpha_s_vol  = params[4] # learning rate for p(s)
+        self.alpha_a_vol  = params[5] # learning rate for p(a) 
+        self.beta_vol     = params[6] # inverse temp
+        self.tau_vol      = params[7] # trust on model
 
-    def update_Ps( self):
+    def plan_act(self):
         # retrieve memory
-        ctxt, state = self.memory.sample( 'ctxt', 'state')
+        ctxt = self.memory.sample( 'ctxt')[0]
         # choose parameter set 
-        alpha_s = self.alpha_s_stab if ctxt else self.alpha_s_vol
-        ## Update p_s
-        # δ = 1 - v(s)
-        rpe = 1 - self.v_s[state, 0] 
-        # v(s) = v(s) + α_s * δ
-        self.v_s[state, 0] += alpha_s * rpe
-        # p(s) ∝ exp( w v(s))
-        self.p_s = softmax( self.w * self.v_s, axis=0)
-    
-    def update_Pa( self):
-        # retrieve memory
-        ctxt, act = self.memory.sample( 'ctxt', 'act')
-         # choose parameter set 
-        alpha_a = self.alpha_a_stab if ctxt else self.alpha_a_vol
-        ## Update p_a
-        rpe = 1 - self.v_a[act, 0] 
-        # v(s) = v(s) + α_s * δ
-        self.v_a[act, 0] += alpha_a * rpe 
-        # p(s) ∝ exp( w v(s))
-        self.q_a = softmax( self.w * self.v_a, axis=0)
+        beta = self.beta_stab if ctxt else self.beta_vol
+        tau  = self.tau_stab if ctxt else self.tau_vol
+        # construct utility function 
+        u_sa = self.get_U()
+        # pi(a|s) ∝ exp( βU(s,a) + log q(a))
+        f_a1s   = beta * u_sa + tau * np.log( self.q_a.T + eps_)
+        self.pi = softmax(  f_a1s, axis=1)
+        # marginal over state 
+        self.P_a = ( self.p_s.T @ self.pi).reshape([-1])
 
 class SMModel( Basebrain):
     
@@ -942,3 +930,17 @@ class BayesLearner( Basebrain):
     def EQ( self):
         u_sa = self.get_U()
         return np.sum( self.p_s * self.pi * u_sa)
+
+class BayesNoPolicy( BayesLearner):
+
+    def __init__( self, nS, nA, rng, params=[]):
+        super().__init__( nS, nA, rng)
+        if len( params):
+            self._load_free_params( params)
+        self._init_dists()
+
+    def _load_free_params( self, params):
+        self.beta_stab   = params[0] # stable beta 
+
+    def plan_act(self):
+        self.P_a = (self.p_s).reshape([-1])

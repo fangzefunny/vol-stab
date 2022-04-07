@@ -41,12 +41,11 @@ def set_hyperparams(args):
         args.params_name = [ 'α_s_stab', 'α_a_stab', 'β_stab',
                              'α_s_vol',  'α_a_vol',  'β_vol', 'β']
     elif args.agent_name == 'RDModel3':
-        args.bnds        = ( ( 0, 1), ( 0, 1), ( 0, 100),
-                             ( 0, 1), ( 0, 1), ( 0, 100),
-                             ( 0, 100),)
-        args.params_name = [ 'α_s_stab', 'α_a_stab', 'β_stab',
-                             'α_s_vol',  'α_a_vol',  'β_vol',
-                             'w']
+        args.bnds        = ( ( 0, 1), ( 0, 1), ( 0, 60), ( 0, 60), 
+                             ( 0, 1), ( 0, 1), ( 0, 60), ( 0, 60),)
+        args.params_name = [ 'α_s_stab', 'α_a_stab', 'β_stab', 'τ_stab'
+                             'α_s_vol',  'α_a_vol',  'β_vol',  'τ_stab']
+
     elif args.agent_name == 'SMModel':
         args.bnds        = ( ( 0, 1), ( 0, 20),
                              ( 0, 1), ( 0, 20),)
@@ -138,6 +137,9 @@ def set_hyperparams(args):
     elif args.agent_name == 'BayesLearner':
         args.bnds        = ( ( 1/20, 30), ( 1/20, 30))
         args.params_name = [ 'β_stab', 'β_vol']
+    elif args.agent_name == 'BayesNoPolicy':
+        args.bnds        = [ ( 1/20, 30)]
+        args.params_name = [ '?']
     
     # if there is input initialization, we do not need to
     # random the intialization 

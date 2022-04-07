@@ -168,9 +168,9 @@ def get_opt( outcomes):
     # define model 
     model = subj( BayesLearner)
     # get beta
-    n_beta = 20
-    betas_stab = np.linspace( 0.01, 10, n_beta)
-    betas_vol  = np.linspace( 0.01, 10, n_beta)
+    n_beta = 30
+    betas_stab = np.linspace( 0.01, 20, n_beta)
+    betas_vol  = np.linspace( 0.01, 20, n_beta)
     stab_rew   = np.zeros( [n_beta, n_beta])
     stab_comp  = np.zeros( [n_beta, n_beta])
     vol_rew    = np.zeros( [n_beta, n_beta])
@@ -215,7 +215,7 @@ if __name__ == '__main__':
     except:
         outcomes = dict() 
 
-    ## STEP1: GET THE QUANTITATIVE METRICS
+    # # STEP1: GET THE QUANTITATIVE METRICS
     # outcomes = smry_quant_criteria( pool, outcomes, models, args)
     
     # ## STEP2: GET RATE DISTORTION ANALYSES
