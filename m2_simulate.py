@@ -15,8 +15,8 @@ path = os.path.dirname(os.path.abspath(__file__))
 
 ## pass the hyperparams
 parser = argparse.ArgumentParser(description='Test for argparse')
-parser.add_argument('--agent_name', '-n', help='choose agent', default='RDModel2')
-parser.add_argument('--data_set', '-d', help='choose data set', default='rew_con')
+parser.add_argument('--agent_name', '-n', help='choose agent', default='RDModel2_exp')
+parser.add_argument('--data_set', '-d', help='choose data set', default='exp1_rew')
 parser.add_argument('--mode', '-m', help='type of simulation', default='reg')
 parser.add_argument('--group', '-g', help='choose agent', default='ind')
 parser.add_argument('--seed', '-s', help='random seed', type=int, default=120)
@@ -68,7 +68,7 @@ def sim_paral( data, args):
     '''The simulate method used in Collins&Frank 2012
 
         "Twenty simulated experiments were each subject's
-        individual squence and parameters， and then averaged 
+        individual squence and parameters, and then averaged 
         to represent subjects contribution."
     '''
     ## Get all the subject id 

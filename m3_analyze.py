@@ -16,7 +16,7 @@ path = os.path.dirname(os.path.abspath(__file__))
 parser = argparse.ArgumentParser(description='Test for argparse')
 parser.add_argument('--n_subj', '-f', help='f simulations', type=int, default=1)
 parser.add_argument('--data_set', '-d', help='choose data set', default='exp1_rew')
-parser.add_argument('--agent_name', '-n', help='choose agent', default='RDModel2')
+parser.add_argument('--agent_name', '-n', help='choose agent', default='RDModel2_exp')
 parser.add_argument('--n_cores', '-c', help='number of CPU cores used for parallel computing', 
                                             type=int, default=0)
 args = parser.parse_args()
@@ -164,6 +164,8 @@ def get_opt( outcomes):
         data = pickle.load( handle)
     stab_vol = {'cb1': data['cb1']}
     vol_stab = {'cb3': data['cb3']}
+    
+    if 'opt' not in outcomes.keys(): outcomes['opt'] = dict()
 
     # define model 
     model = subj( BayesLearner)
@@ -189,10 +191,10 @@ def get_opt( outcomes):
             vol_rew[ i, j]   = out_con.query( 'b_type == 0')['rew_hat'].mean()
             vol_comp[ i, j]  = out_con.query( 'b_type == 0')['pi_comp'].mean()
 
-    outcomes['opt_stab_rew']  = stab_rew.mean(axis=1)
-    outcomes['opt_stab_comp'] = stab_comp.mean(axis=1)
-    outcomes['opt_vol_rew']   = vol_rew.mean(axis=0)
-    outcomes['opt_vol_comp']  = vol_comp.mean(axis=0)
+    outcomes['opt']['stab_rew']  = stab_rew.mean(axis=1)
+    outcomes['opt']['stab_comp'] = stab_comp.mean(axis=1)
+    outcomes['opt']['vol_rew']   = vol_rew.mean(axis=0)
+    outcomes['opt']['vol_comp']  = vol_comp.mean(axis=0)
     return outcomes 
 
 ## Define a global Effect of interest  
@@ -215,14 +217,14 @@ if __name__ == '__main__':
     except:
         outcomes = dict() 
 
-    # # STEP1: GET THE QUANTITATIVE METRICS
-    # outcomes = smry_quant_criteria( pool, outcomes, models, args)
+    # STEP1: GET THE QUANTITATIVE METRICS
+    outcomes = smry_quant_criteria( pool, outcomes, models, args)
     
-    # ## STEP2: GET RATE DISTORTION ANALYSES
-    # outcomes = smry_RC_analyses( outcomes, models, args)
+    ## STEP2: GET RATE DISTORTION ANALYSES
+    outcomes = smry_RC_analyses( outcomes, models, args)
 
-    # ## STEP3: GET PARAMS SUMMARY
-    # outcomes = smry_params( outcomes, models, args)
+    ## STEP3: GET PARAMS SUMMARY
+    outcomes = smry_params( outcomes, models, args)
 
     outcomes = get_opt( outcomes)
     

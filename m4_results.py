@@ -90,7 +90,7 @@ def get_para( data):
         lst.append( para( np.arange( 0, 1,.05), a1, b1, c1))
     return lst
     
-def viz_RC_anlyses( outcomes, model):
+def viz_RC_anlyses(outcomes, model):
     '''Show the rate-distortion curve 
     '''
     data = outcomes[model]['RC-analyses']
@@ -204,7 +204,7 @@ if __name__ == '__main__':
 
     ## Analyze the data 
     datasets = ['exp1_rew']
-    models   = ['RDModel2']
+    models   = ['RDModel2_exp']
     for dataset in datasets:
         for model in models:
             fname = f'{path}/analyses/analyses-{dataset}.pkl'
