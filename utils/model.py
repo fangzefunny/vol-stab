@@ -1,185 +1,161 @@
 import numpy as np 
 import pandas as pd 
-import warnings
-# ignore this warnings
-from pandas.core.common import SettingWithCopyWarning
-warnings.simplefilter(action="ignore", category=SettingWithCopyWarning)
 from scipy.optimize import minimize
 
-eps_ = 1e-12
-max_ = 1e+8
+eps_ = 1e-13
+max_ = 1e+13
 
-class subj:
+class model:
     '''Out loop of the fit
-
-    This class can instantiate a dynmaic 
-    decision-making model. 
+    This class can instantiate a dynmaic decision-making model. 
+    Two main functions:
+        fit:  search for the best parameters given label
+            arg max_{θ} p(x,y|θ)
+        pred: predict the label given parameters 
+            y ~ p(Y|x,θ)
     '''
 
-    def __init__( self, agent, param_priors=None, seed=1234):
-        self.agent = agent 
+    def __init__(self, agent, param_priors=None):
+        self.agent = agent
         self.param_priors = param_priors
-        self.rng   = np.random.RandomState(seed)
+    
+    # ------------ fit ------------ #
 
-    def assign_data( self, data, act_dim):
-        self.train_data = data
-        self.state_dim  = 2#len( data[0].state.unique())
-        self.act_dim    = act_dim  
-
-    def loss_fn(self, params, data):
-        '''Total likelihood
-        log p(D|θ) = -log ∏_i p(D_i|θ)
-                   = ∑_i -log p( D_i|θ )
-        or Maximum a posterior 
-        log p(θ|D) = ∑_i -log p( D_i|θ ) + -log p(θ)
-        '''
-        tot_loss = [ self._like( params, data[key])
-                   + self._prior( params) for key in data.keys()]        
-        return np.sum( tot_loss)
-
-    def _like( self, params, data):
-        '''Likelihood for one sample
-
-        -log p( D_i|θ )
-
-        In RL, each sample is a block of experiment,
-        Because it is independent across experiment.
-        '''
-
-        # init 
-        NLL = 0.
-        agent = self.agent( 2, 2, self.rng, params)
-
-        # loop to estimate the neg log likelihood
-        for t in range( data.shape[0]):
-            # obtain st and at, 
-            mag0  = data.mag0[t]
-            mag1  = data.mag1[t]
-            obs   = [ mag0, mag1]
-            ctxt  = int( data.b_type[t])
-            state = int( data.state[t])
-            # planning the action
-            mem = { 'ctxt': ctxt, 'obs': obs, 'state': state }    
-            agent.memory.push( mem) 
-            agent.plan_act()
-            act   = int( data.action[t])
-            rew   = obs[ act]
-            # store 
-            mem = { 'act': act,  'rew': rew,     't': t }    
-            agent.memory.push( mem)
-            # evaluate: log π(a|xt)
-            NLL += - np.log( agent.eval_act( act) + eps_)
-            # leanring stage 
-            agent.update()
-        
-        return NLL
-
-    def _prior( self, params):
-        '''Add the prior of the parameters
-        '''
-        tot_pr = 0.
-        if self.param_priors:
-            for prior, param in zip(self.param_priors, params):
-                tot_pr += -np.max([prior.logpdf( param), -max_])
-        return tot_pr
-
-    def fit( self, data, pbnds, bnds=None, seed=2021, 
-                verbose=False, init=None,):
+    def fit(self, data, seed=2021, init=None, verbose=False):
         '''Fit the parameter using optimization 
         '''
+        # get bounds and possible bounds 
+        bnds  = self.agent.bnds
+        pbnds = self.agent.pbnds
+
         # Init params
         if init:
             # if there are assigned params
             param0 = init
         else:
             # random init from the possible bounds 
-            rng = np.random.RandomState( seed)
-            param0 = [pbnd[0] + (pbnd[ 1] - pbnd[0]
+            rng = np.random.RandomState(seed)
+            param0 = [pbnd[0] + (pbnd[1] - pbnd[0]
                      ) * rng.rand() for pbnd in pbnds]
                      
         ## Fit the params 
-        verbose and print( 'init with params: ', param0) 
-        res = minimize( self.loss_fn, param0, args=( data), 
+        if verbose: print('init with params: ', param0) 
+        res = minimize(self.loss_fn, param0, args=(data), 
                         bounds=bnds, options={'disp': verbose})
-        verbose and print( f'''  Fitted params: {res.x}, 
+        if verbose: print(f'''  Fitted params: {res.x}, 
                     MLE loss: {res.fun}''')
         
         return res.x, res.fun 
 
-    def predict( self, data, params, ):
-        '''Calculate the predicted trajectories
-        using fixed parameters
+    def loss_fn(self, params, data):
+        '''Total likelihood
+        log p(D|θ) = -log ∏_i p(D_i|θ)
+                   = ∑_i -log p(D_i|θ )
+        or Maximum a posterior 
+        log p(θ|D) = ∑_i -log p(D_i|θ ) + -log p(θ)
         '''
-        # each sample contains human respose within a block 
-        out_data = []
-        for i in data.keys():
-            input_sample = data[i].copy()
-            out_data.append( self.simulate( input_sample, params))
-        return pd.concat( out_data, ignore_index=True)
+        tot_loss = [self._loglike(params, data[key])
+                  + self._logprior(params) 
+                    for key in data.keys()]        
 
-    def simulate( self, data, params):
+        return np.sum(tot_loss)
 
-        ## Init the agent 
-        state_dim = len( data.state.unique())
-        action_dim = 2
-        agent= self.agent( state_dim, action_dim, self.rng, params) 
+    def _loglike(self, params, block_data):
+        '''Likelihood for one sample
+        -log p(D_i|θ )
+        In RL, each sample is a block of experiment,
+        Because it is independent across experiment.
+        '''
+        nA = block_data['state'].unique().shape[0]
+        subj = self.agent(nA, params)
+        nLL = 0
+       
+        ## loop to simulate the responses in the block 
+        for _, row in block_data.iterrows():
+
+            # predict stage: obtain input
+            mag0  = row['mag0']
+            mag1  = row['mag1']
+            ctxt  = row['b_type']
+            state = row['state']
+            act   = row['humanAct']
+            # rew   = row['rew']
+            mem  = {'mag0': mag0, 'mag1': mag1}
+            subj.buffer.push(mem)
+
+            # control stage: evaluate the human act
+            nLL -= subj.control(act, mode='eval')
+
+            # feedback stage: update the belief, 'gen' has no feedback
+            mem = {'ctxt': ctxt, 'state': state}
+            subj.buffer.push(mem)  
+            subj.learn() 
+
+        return nLL
+          
+    def _logprior(self, params):
+        '''Add the prior of the parameters
+        '''
+        tot_pr = 0.
+        if self.param_priors:
+            for prior, param in zip(self.param_priors, params):
+                tot_pr += -np.max([prior.logpdf(param), -max_])
+        return tot_pr
+
+    # ------------ simulate ------------ #
+
+    def sim(self, data, params, rng):
+        sim_data = [] 
+        for block_id in data.keys():
+            block_data = data[block_id].copy()
+            sim_data.append(self.sim_block(block_data, params, rng))
         
+        return pd.concat(sim_data, ignore_index=True)
+
+    def sim_block(self, block_data, params, rng):
+
+        ## init the agent 
+        nA = block_data['state'].unique().shape[0]
+        subj = self.agent(nA, params)
+
         ## init a blank dataframe to store simulation
-        col = [ 'rew', 'rew_hat', 'p_s',
-                'pi_0', 'pi_1', 'q_a',
-                'nll', 'pi_comp', 'EQ']
-        init_mat = np.zeros([ data.shape[0], len(col)]) + np.nan
-        pred_data = pd.DataFrame( init_mat, columns=col)  
+        col = ['act', 'match', 'acc', 'logLike'] + self.agent.voi
+        init_mat = np.zeros([block_data.shape[0], len(col)]) + np.nan
+        pred_data = pd.DataFrame(init_mat, columns=col)  
 
-        for t in range( data.shape[0]):
-            
-             # obtain st and at, 
-            mag0      = data['mag0'][t]
-            mag1      = data['mag1'][t]
-            obs       = [ mag0, mag1]
-            state     = int(data['state'][t])
-            ctxt      = int(data['b_type'][t])
-            # planning the action
-            mem = { 'ctxt': ctxt, 'obs': obs, 'state': state }    
-            agent.memory.push( mem) 
-            agent.plan_act()
-            act   = int( data.action[t])
-            rew   = obs[ act]
-            rew_hat = rew*agent.P_a[ act] if rew>0 else obs[1-act]*agent.P_a[1-act]
-            
-            # evaluate: log π(a|xt)
-            nll = - np.log( agent.eval_act( act) + eps_)
+        ## loop to simulate the responses in the block
+        for t, row in block_data.iterrows():
 
-            # record some vals
-            pred_data['rew'][t]       = rew
-            pred_data['rew_hat'][t]   = rew_hat
-            pred_data['p_s'][t]       = agent.p_s[ 0, 0]
-            pred_data['nll'][t]       = nll
+            # predict stage: obtain input
+            mag0     = row['mag0']
+            mag1     = row['mag1']
+            ctxt     = row['b_type']
+            state    = row['state']
+            match    = row['match']
+            mem      = {'mag0': mag0, 'mag1': mag1}
+            subj.buffer.push(mem)
+            
+            # control stage: make a resposne
+            logLike = subj.control(state, mode='eval')
+            act, logAcc = subj.control(state, rng=rng)
+            rew = 1 * (act==state)
+
+            # record the vals 
+            pred_data.loc[t, 'act']     = act
+            pred_data.loc[t, 'match']     = match
+            pred_data.loc[t, 'acc']     = np.exp(logAcc).round(3)
+            pred_data.loc[t, 'logLike'] = -logLike.round(3)
 
             # record some important variable
-            if agent.pi is not None: 
-                pred_data['pi_0'][t] = agent.pi[ 0, 0]
-                pred_data['pi_1'][t] = agent.pi[ 1, 0]
-            if agent.q_a is not None: pred_data['q_a'][t] = agent.q_a[ 0, 0]
-            if agent.pi_comp() is not None: pred_data['pi_comp'][t] = agent.pi_comp()
-            if agent.EQ() is not None: pred_data['EQ'][t] = agent.EQ()
+            for var in self.agent.voi:
+                pred_data.loc[t, f'{var}'] = eval(f'subj.print_{var}()')
 
-            # store 
-            mem = { 'act': act,  'rew': rew,     't': t }   
-            agent.memory.push( mem)   
-            
-            # model update
-            agent.update()     
+            # feedback stage: update the belief, gen has no feedback
+            mem = {'ctxt': ctxt, 'state': state}
+            subj.buffer.push(mem)  
+            subj.learn() 
 
-        ## Merge the data into a large 
-        pred_data = pred_data.dropna( axis=1, how='all')
-        data = pd.concat( [ data, pred_data], axis=1)   
+        # remove all nan columns
+        pred_data = pred_data.dropna(axis=1, how='all')
 
-        # # show pi_comp
-        # pi_comp1 = data['pi_comp'][ data['b_type']==1].mean()
-        # pi_comp2 = data['pi_comp'][ data['b_type']==0].mean()
-        # sb_id = data['sub_id'][0]
-        # print( f'Sub id: {sb_id}')
-        # print( f'Stab beta: {agent.beta_stab}; Vol beta: {agent.beta_vol}')
-        # print( f'Stab Pi Comp: {pi_comp1}; Vol Pi Comp: {pi_comp2}')    
-        return data
+        return pd.concat([block_data, pred_data], axis=1)
