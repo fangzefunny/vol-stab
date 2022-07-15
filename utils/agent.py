@@ -132,7 +132,7 @@ class ceModel(gagModel):
 
     def _init_Critic(self):
         self.theta = 0 
-        self.ps    = sigmoid(self.theta)
+        self.p    = sigmoid(self.theta)
         self.p_S   = np.array([1-self.p, self.p]) 
 
     def _learnCritic(self):
