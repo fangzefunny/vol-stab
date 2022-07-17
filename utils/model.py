@@ -80,14 +80,14 @@ class model:
             state = row['state']
             act   = row['humanAct']
             # rew   = row['rew']
-            mem  = {'mag0': mag0, 'mag1': mag1}
+            mem  = {'ctxt': ctxt, 'mag0': mag0, 'mag1': mag1}
             subj.buffer.push(mem)
 
             # control stage: evaluate the human act
             nLL -= subj.control(act, mode='eval')
 
             # feedback stage: update the belief, 'gen' has no feedback
-            mem = {'ctxt': ctxt, 'state': state}
+            mem = {'ctxt': ctxt, 'state': state, 'act': act}
             subj.buffer.push(mem)  
             subj.learn() 
 
