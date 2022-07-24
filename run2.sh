@@ -5,7 +5,7 @@ python m0_preprocess.py
 
 ## declare all models and all data sets
 declare data_sets=("exp1_rew")
-declare models=("gagModel2")
+declare models=("distRL_Mix")
 
 ## step 1: fit the model
 for data_set in "${data_sets[@]}"; do 

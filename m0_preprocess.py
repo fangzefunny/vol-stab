@@ -35,6 +35,17 @@ def get_pat_dict():
     
     return pat_dict
 
+def getPTrue(pmean):
+
+    if pmean >= .7:
+        return [pmean.round(2)]*90
+    elif (.5 < pmean) and (pmean < .7):
+        return [.8]*20+[.2]*20+[.8]*20+[.2]*20+[.8]*10
+    elif (.3 < pmean) and (pmean < .5):
+        return [.2]*20+[.8]*20+[.2]*20+[.8]*20+[.2]*10
+    elif pmean <= .3:
+        return [pmean.round(2)]*90
+
 def remake_cols_idx(data, sub_id, dis_group, seed=42):
     '''Core preprocess fn
     '''
@@ -51,7 +62,7 @@ def remake_cols_idx(data, sub_id, dis_group, seed=42):
     data.rename(columns=col_dict, inplace=True)
 
     ## Change the trial index
-    data['trial'] = data['trial'].apply(lambda x: x % 90)
+    # data['trial'] = data['trial'].apply(lambda x: x % 90)
 
     ## Change the action index
     # the raw data: left stim--1, right stim--0
@@ -73,8 +84,10 @@ def remake_cols_idx(data, sub_id, dis_group, seed=42):
                                 ) else 'vol_first'
 
     ## True probability
-    data.loc[:89, 'p_true'] = data.loc[:89, 'state'].mean()
-    data.loc[90:, 'p_true'] = data.loc[90:, 'state'].mean()
+    if getPTrue(data.loc[:89, 'state'].mean()) is np.nan:
+        print(1)
+    data.loc[:89, 'p_true'] = getPTrue(data.loc[:89, 'state'].mean())
+    data.loc[90:, 'p_true'] = getPTrue(data.loc[90:, 'state'].mean())
 
     ## Give the label
     data['seq'] = data['p_true'].apply(lambda x: int(x >= .5))

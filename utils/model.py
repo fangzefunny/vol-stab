@@ -132,17 +132,19 @@ class model:
             ctxt     = row['b_type']
             state    = row['state']
             match    = row['match']
-            mem      = {'mag0': mag0, 'mag1': mag1}
+            mem      = {'ctxt': ctxt, 'mag0': mag0, 'mag1': mag1}
             subj.buffer.push(mem)
             
             # control stage: make a resposne
-            logLike = subj.control(state, mode='eval')
-            act, logAcc = subj.control(state, rng=rng)
+            act      = row['humanAct']
+            logLike = subj.control(act, mode='eval')
+            logAcc  = subj.control(state, mode='eval')
+            #act, logAcc = subj.control(state, rng=rng)
             rew = 1 * (act==state)
 
             # record the vals 
             pred_data.loc[t, 'act']     = act
-            pred_data.loc[t, 'match']     = match
+            pred_data.loc[t, 'match']   = match
             pred_data.loc[t, 'acc']     = np.exp(logAcc).round(3)
             pred_data.loc[t, 'logLike'] = -logLike.round(3)
 
@@ -151,7 +153,7 @@ class model:
                 pred_data.loc[t, f'{var}'] = eval(f'subj.print_{var}()')
 
             # feedback stage: update the belief, gen has no feedback
-            mem = {'ctxt': ctxt, 'state': state}
+            mem = {'ctxt': ctxt, 'state': state, 'act': act}
             subj.buffer.push(mem)  
             subj.learn() 
 
