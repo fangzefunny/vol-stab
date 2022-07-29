@@ -6,6 +6,7 @@
 utils/__pycache__/
 results.zip
 __pycache__/
+/*.DS_Store
 
 # ignore folder 
 data/ 
