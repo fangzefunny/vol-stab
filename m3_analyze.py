@@ -6,7 +6,7 @@ import pandas as pd
 import multiprocessing as mp
 
 from utils.analyze import *
-from utils.agents import *
+from utils.agent import *
 from utils.model import subj
 
 # define path
