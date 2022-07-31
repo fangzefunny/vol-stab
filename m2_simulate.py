@@ -13,8 +13,8 @@ path = os.path.dirname(os.path.abspath(__file__))
 
 ## pass the hyperparams
 parser = argparse.ArgumentParser(description='Test for argparse')
-parser.add_argument('--agent_name', '-n', help='choose agent', default='rlPG')
-parser.add_argument('--data_set', '-d', help='choose data set', default='exp1')
+parser.add_argument('--agent_name', '-n', help='choose agent', default='mix_pol')
+parser.add_argument('--data_set', '-d', help='choose data set', default='gain_data')
 parser.add_argument('--n_sim', '-f', help='f simulations', type=int, default=5)
 parser.add_argument('--group', '-g', help='choose agent', default='ind')
 parser.add_argument('--seed', '-s', help='random seed', type=int, default=120)

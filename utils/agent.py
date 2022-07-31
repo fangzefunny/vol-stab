@@ -107,7 +107,7 @@ class gagRL(baseAgent):
 
     def _learnCritic(self):
         c, o = self.buffer.sample('ctxt','state')
-        alpha = self.alpha_sta if c=='stable' else self.alpha_vol
+        alpha = self.alpha_sta if c=='sta' else self.alpha_vol
         self.p += alpha * (o - self.p)
         self.p_S = np.array([1-self.p, self.p])
 
@@ -125,11 +125,11 @@ class gagRL(baseAgent):
 class gagModel(gagRL):
     name     = 'Gagne best model'
     bnds     = [(0, 1), (0, 1), (0, 30), (0, 30), 
-                (0, 1), (0, 30), (0, 1), (0, 1)]
+                (0, 1), (0, 30), (0, 1), (0, 1), (0, 1)]
     pbnds    = [(0,.5), (0,.5), (0, 10), (0, 10), 
-                (0, 1), (0, 30), (0, 1), (0, 1)]
+                (0, 1), (0, 30), (0, 1), (0, 1), (0, 1)]
     p_name   = ['α_STA', 'α_VOL', 'β_STA', 'β_VOL', 
-                'α_ACT', 'β_ACT', 'λ', 'r']  
+                'α_ACT', 'β_ACT', 'λ_STA', 'β_ACT', 'r']  
     n_params = len(bnds)
     voi      = ['ps', 'pi'] 
    
@@ -140,8 +140,9 @@ class gagModel(gagRL):
         self.beta_vol  = params[3]
         self.alpha_act = params[4]
         self.beta_act  = params[5]
-        self.lamb      = params[6]
-        self.r         = params[7]
+        self.lamb_sta  = params[6]
+        self.lamb_vol  = params[7]
+        self.r         = params[8]
     
     def learn(self):
         self._learnCritic()
@@ -156,9 +157,10 @@ class gagModel(gagRL):
        
     def _policy(self):
         c, m0, m1 = self.buffer.sample('ctxt', 'mag0','mag1')
-        beta = self.beta_sta if c=='stable' else self.beta_vol
-        v    = self.lamb*(self.p - (1-self.p)) \
-               + (1-self.lamb)*abs(m1-m0)**self.r*np.sign(m1-m0)
+        beta = eval(f'self.beta_{c}')
+        lamb = eval(f'self.lamb_{c}')
+        v    = lamb*(self.p - (1-self.p)) \
+               + (1-lamb)*abs(m1-m0)**self.r*np.sign(m1-m0)
         va   = beta*v + self.beta_act*(self.q - (1-self.q))
         pa   = 1 / (1 + np.exp(-va))
         return np.array([1-pa, pa])
@@ -187,14 +189,34 @@ class gagModel2(gagModel):
        
     def _policy(self):
         c, m0, m1 = self.buffer.sample('ctxt', 'mag0','mag1')
-        beta = self.beta_sta if c=='stable' else self.beta_vol
+        beta = self.beta_sta if c=='sta' else self.beta_vol
         v    = self.lamb*(self.p - (1-self.p)) \
                + (1-self.lamb)*abs(m1-m0)**self.r*np.sign(m1-m0)
         va   = beta*v 
         pa   = 1 / (1 + np.exp(-va))
         return np.array([1-pa, pa])
 
-        
+class risk(gagRL):
+    name     = 'Gagne RL'
+    bnds     = [(0, 1), (0, 1), (0, 30), (0, 20), (0, 20)]
+    pbnds    = [(0,.5), (0,.5), (0, 10), (0, 20), (0, 20)]
+    p_name   = ['α_STA', 'α_VOL', 'β', 'γ_STA', 'γ_VOL']  
+    n_params = len(bnds)
+    voi      = ['ps', 'pi'] 
+   
+    def load_params(self, params):
+        self.alpha_sta = params[0]
+        self.alpha_vol = params[1]
+        self.beta      = params[2]
+        self.gamma_sta = params[3]
+        self.gamma_vol = params[4]
+    
+    def _learnCritic(self):
+        c, o = self.buffer.sample('ctxt','state')
+        self.p += eval(f'self.alpha_{c}') * (o - self.p)
+        ps = np.clip(eval(f'self.gamma_{c}')*(self.p-.5)+.5, 0, 1)
+        self.p_S = np.array([1-ps, ps])
+
 # ---------  min CE ----------- #
 
 sigmoid = lambda x: 1 / (1+np.exp(-x))
@@ -214,7 +236,7 @@ class ceModel(gagRL):
 
     def _learnCritic(self):
         c, o = self.buffer.sample('ctxt','state')
-        alpha = self.alpha_sta if c=='stable' else self.alpha_vol
+        alpha = self.alpha_sta if c=='sta' else self.alpha_vol
         self.theta += alpha * (o - self.p)
         self.p = sigmoid(self.theta)
         self.p_S = np.array([1-self.p, self.p])
@@ -258,7 +280,7 @@ class CSCE(ceModel):
 
     def _policy(self):
         c, m0, m1 = self.buffer.sample('ctxt', 'mag0','mag1')
-        lamb = self.lamb_sta if c=='stable' else self.lamb_vol
+        lamb = self.lamb_sta if c=='sta' else self.lamb_vol
         mag = np.array([m0, m1])
         u_A = self.p_S*mag 
         return softmax(self.beta*u_A + lamb*np.log(self.q_A+eps_))
@@ -289,16 +311,17 @@ class mix(CSCE):
 
 class mix_Explore(mix):
     name     = 'mix, fit different'
-    bnds     = [(0,50), (0,50), (0,50), (0, 50), 
-                (0, 1), (0, 1), (0, 1),
-                (0, 1), (0, 1), (0, 1)]
-    pbnds    = [(0, 2), (0, 2), (0, 3), (0, 10), 
-                (0, 1), (0, 1), (0, 1),
-                (0, 1), (0, 1), (0, 1)]
-    p_name   = ['α_STA', 'α_VOL', 'α_ACT', 'β', 
-                'w0_STA', 'w1_STA', 'w2_STA',
-                'w0_VOL', 'w1_VOL', 'w2_VOL']
+    bnds     = [(0,50), (0,50), (0,50), (0,50), 
+                (0, 1), (0, 1), (0, 1), (0, 1),
+                (0, 1), (0, 1), (0, 1), (0, 1)]
+    pbnds    = [(0, 2), (0, 2), (0, 3), (0, 5),
+                (0, 1), (0, 1), (0, 1), (0, 1),
+                (0, 1), (0, 1), (0, 1), (0, 1)]
+    p_name   = ['α_STA', 'α_VOL', 'α_ACT', 'β',
+                'w0_STA', 'w1_STA', 'w2_STA', 'w3_STA',
+                'w0_VOL', 'w1_VOL', 'w2_VOL', 'w3_VOL']
     n_params = len(bnds)
+    voi      = ['ps', 'pi', 'alpha', 'w0', 'w1', 'w2', 'w3'] 
     
     def load_params(self, params):
         self.alpha_sta = params[0]
@@ -308,19 +331,166 @@ class mix_Explore(mix):
         self.w0_sta    = params[4]
         self.w1_sta    = params[5]
         self.w2_sta    = params[6]
-        self.w0_vol    = params[7]
-        self.w1_vol    = params[8]
-        self.w2_vol    = params[9]
+        self.w3_sta    = params[7]
+        self.w0_vol    = params[8]
+        self.w1_vol    = params[9]
+        self.w2_vol    = params[10]
+        self.w3_vol    = params[11]
 
     def _policy(self):
         c, m0, m1 = self.buffer.sample('ctxt', 'mag0','mag1')
         mag = np.array([m0, m1])
-        w0 = self.w0_sta if c=='stable' else self.w0_vol
-        w1 = self.w1_sta if c=='stable' else self.w1_vol
-        w2 = self.w2_sta if c=='stable' else self.w2_vol
-        u_A = w0*self.p_S*mag + w1*self.p_S + \
-                w2*mag + (1-w0-w1-w2)*self.q_A 
+        u_A = eval(f'self.w0_{c}')*self.p_S*mag\
+              + eval(f'self.w1_{c}')*self.p_S\
+              + eval(f'self.w2_{c}')*mag\
+              + eval(f'self.w3_{c}')*self.q_A
         return softmax(self.beta*u_A)
+
+    def print_w0(self):
+        return eval(f'self.w0_{self.buffer.sample("ctxt")}') 
+
+    def print_w1(self):
+        return eval(f'self.w1_{self.buffer.sample("ctxt")}')  
+
+    def print_w2(self):
+        return eval(f'self.w3_{self.buffer.sample("ctxt")}')  
+
+    def print_w3(self):
+        return eval(f'self.w3_{self.buffer.sample("ctxt")}')  
+    
+    def print_alpha(self):
+        return eval(f'self.alpha_{self.buffer.sample("ctxt")}') 
+
+class mix_red(mix_Explore):
+    name     = 'mix, reduce beta'
+    bnds     = [(0,50), (0,50), (0,50), 
+                (0,40), (0,40), (0,40), (0,40),
+                (0,40), (0,40), (0,40), (0,40)]
+    pbnds    = [(0, 2), (0, 2), (0, 3), 
+                (0, 2), (0, 2), (0, 2), (0, 2),
+                (0, 2), (0, 2), (0, 2), (0, 2)]
+    p_name   = ['α_STA', 'α_VOL', 'α_ACT',
+                'w0_STA', 'w1_STA', 'w2_STA', 'w3_STA',
+                'w0_VOL', 'w1_VOL', 'w2_VOL', 'w3_VOL']
+    n_params = len(bnds)
+
+    def load_params(self, params):
+        self.alpha_sta = params[0]
+        self.alpha_vol = params[1]
+        self.alpha_act = params[2]
+        self.w0_sta    = params[3]
+        self.w1_sta    = params[4]
+        self.w2_sta    = params[5]
+        self.w3_sta    = params[6]
+        self.w0_vol    = params[7]
+        self.w1_vol    = params[8]
+        self.w2_vol    = params[9]
+        self.w3_vol    = params[10]
+
+    def _policy(self):
+        c, m0, m1 = self.buffer.sample('ctxt', 'mag0','mag1')
+        mag = np.array([m0, m1])
+        u_A = eval(f'self.w0_{c}')*self.p_S*mag\
+              + eval(f'self.w1_{c}')*self.p_S\
+              + eval(f'self.w2_{c}')*mag\
+              + eval(f'self.w3_{c}')*self.q_A 
+        return softmax(u_A)
+
+class mix_pol(mix_Explore):
+    name     = 'mix, reduce beta'
+    bnds     = [(0,50), (0,50), (0,50), (0,50),
+                (-40,40), (-40,40), (-40,40), (-40,40),
+                (-40,40), (-40,40), (-40,40), (-40,40)]
+    pbnds    = [(0, 2), (0, 2), (0, 3), (0, 5),
+                (-5, 5), (-5, 5), (-5, 5), (-5, 5),
+                (-5, 5), (-5, 5), (-5, 5), (-5, 5)]
+    p_name   = ['α_STA', 'α_VOL', 'α_ACT', 'β',
+                'λ0_STA', 'λ1_STA', 'λ2_STA', 'λ3_STA',
+                'λ0_VOL', 'λ1_VOL', 'λ2_VOL', 'λ3_VOL']
+    n_params = len(bnds)
+
+    def load_params(self, params):
+        self.alpha_sta = params[0]
+        self.alpha_vol = params[1]
+        self.alpha_act = params[2]
+        self.beta      = params[3]
+        self.l0_sta    = params[4]
+        self.l1_sta    = params[5]
+        self.l2_sta    = params[6]
+        self.l3_sta    = params[7]
+        self.l0_vol    = params[8]
+        self.l1_vol    = params[9]
+        self.l2_vol    = params[10]
+        self.l3_vol    = params[11]
+
+    def get_w(self, c):
+        l0 = eval(f'self.l0_{c}')
+        l1 = eval(f'self.l1_{c}')
+        l2 = eval(f'self.l2_{c}')
+        l3 = eval(f'self.l3_{c}')
+        return softmax([l0, l1, l2, l3])
+
+    def _policy(self):
+        c, m0, m1 = self.buffer.sample('ctxt', 'mag0','mag1')
+        mag = np.array([m0, m1])
+        p_SM = softmax(self.beta*self.p_S*mag)
+        p_M  = softmax(self.beta*mag)
+        w0, w1, w2, w3 = self.get_w(c)
+        # creat the mixature model 
+        return w0*p_SM + w1*self.p_S + w2*p_M + w3*self.q_A 
+
+    def print_w0(self):
+        return self.get_w(self.buffer.sample("ctxt"))[0]
+
+    def print_w1(self):
+        return self.get_w(self.buffer.sample("ctxt"))[1] 
+
+    def print_w2(self):
+        return self.get_w(self.buffer.sample("ctxt"))[2]  
+
+    def print_w3(self):
+        return self.get_w(self.buffer.sample("ctxt"))[3]  
+
+class mix_pol_3w(mix_pol):
+    name     = 'mix, policy reduce'
+    bnds     = [(0,50), (0,50), (0,50), (0,50),
+                (-40,40), (-40,40), (-40,40),
+                (-40,40), (-40,40), (-40,40)]
+    pbnds    = [(0, 2), (0, 2), (0, 3), (0, 5),
+                (-5, 5), (-5, 5), (-5, 5),
+                (-5, 5), (-5, 5), (-5, 5),]
+    p_name   = ['α_STA', 'α_VOL', 'α_ACT', 'β',
+                'λ0_STA', 'λ1_STA', 'λ2_STA',
+                'λ0_VOL', 'λ1_VOL', 'λ2_VOL']
+    n_params = len(bnds)
+    voi      = ['ps', 'pi', 'alpha', 'w0', 'w1', 'w2']
+
+    def load_params(self, params):
+        self.alpha_sta = params[0]
+        self.alpha_vol = params[1]
+        self.alpha_act = params[2]
+        self.beta      = params[3]
+        self.l0_sta    = params[4]
+        self.l1_sta    = params[5]
+        self.l2_sta    = params[6]
+        self.l0_vol    = params[7]
+        self.l1_vol    = params[8]
+        self.l2_vol    = params[9]
+
+    def get_w(self, c):
+        l0 = eval(f'self.l0_{c}')
+        l1 = eval(f'self.l1_{c}')
+        l2 = eval(f'self.l2_{c}')
+        return softmax([l0, l1, l2])
+
+    def _policy(self):
+        c, m0, m1 = self.buffer.sample('ctxt', 'mag0','mag1')
+        mag = np.array([m0, m1])
+        p_SM = softmax(self.beta*self.p_S*mag)
+        p_M  = softmax(self.beta*mag)
+        w0, w1, w2 = self.get_w(c)
+        # creat the mixature model 
+        return w0*p_SM + w1*p_M + w2*self.q_A 
 
 class mixNN(mix):
     name     = 'mix, NN implementation'
@@ -375,7 +545,7 @@ class mixNN(mix):
 
     def _learnCritic(self):
         c, o = self.buffer.sample('ctxt', 'state')
-        alpha = self.alpha_sta if c=='stable' else self.alpha_vol
+        alpha = self.alpha_sta if c=='sta' else self.alpha_vol
         # calculate loss 
         thetaTar = torch.eye(self.nA)[o, :]
         loss = -(thetaTar * (self.theta+eps_).log()).sum()
@@ -419,7 +589,7 @@ class mixNN2(mixNN):
 
     def _learnCritic(self):
         c, o = self.buffer.sample('ctxt', 'state')
-        alpha = self.alpha_sta if c=='stable' else self.alpha_vol
+        alpha = self.alpha_sta if c=='sta' else self.alpha_vol
         # calculate loss 
         thetaTar = torch.tensor(o)
         loss = -(thetaTar * (self.theta+eps_).log() +

@@ -16,10 +16,10 @@ path = os.path.dirname(os.path.abspath(__file__))
 ## pass the hyperparams
 parser = argparse.ArgumentParser(description='Test for argparse')
 parser.add_argument('--n_fit', '-f', help='fit times', type = int, default=1)
-parser.add_argument('--data_set', '-d', help='which_data', type = str, default='exp1_rew')
+parser.add_argument('--data_set', '-d', help='which_data', type = str, default='gain_data')
 parser.add_argument('--loss_fn', '-l', help='fitting methods', type = str, default='mle')
 parser.add_argument('--group', '-g', help='fit to ind or fit to the whole group', type=str, default='ind')
-parser.add_argument('--agent_name', '-n', help='choose agent', default='distRL')
+parser.add_argument('--agent_name', '-n', help='choose agent', default='mix_pol')
 parser.add_argument('--n_cores', '-c', help='number of CPU cores used for parallel computing', 
                                             type=int, default=1)
 parser.add_argument('--seed', '-s', help='random seed', type=int, default=420)
