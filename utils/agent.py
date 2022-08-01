@@ -408,6 +408,7 @@ class mix_pol(mix_Explore):
                 'λ0_STA', 'λ1_STA', 'λ2_STA', 'λ3_STA',
                 'λ0_VOL', 'λ1_VOL', 'λ2_VOL', 'λ3_VOL']
     n_params = len(bnds)
+    voi      = ['ps', 'pi', 'alpha', 'w0', 'w1', 'w2', 'w3', 'l0', 'l1', 'l2', 'l3']
 
     def load_params(self, params):
         self.alpha_sta = params[0]
@@ -451,6 +452,18 @@ class mix_pol(mix_Explore):
     def print_w3(self):
         return self.get_w(self.buffer.sample("ctxt"))[3]  
 
+    def print_l0(self):
+        return eval(f'self.l0_{self.buffer.sample("ctxt")}')
+
+    def print_l1(self):
+        return eval(f'self.l1_{self.buffer.sample("ctxt")}')
+
+    def print_l2(self):
+        return eval(f'self.l2_{self.buffer.sample("ctxt")}')
+
+    def print_l3(self):
+        return eval(f'self.l3_{self.buffer.sample("ctxt")}')
+
 class mix_pol_3w(mix_pol):
     name     = 'mix, policy reduce'
     bnds     = [(0,50), (0,50), (0,50), (0,50),
@@ -463,7 +476,7 @@ class mix_pol_3w(mix_pol):
                 'λ0_STA', 'λ1_STA', 'λ2_STA',
                 'λ0_VOL', 'λ1_VOL', 'λ2_VOL']
     n_params = len(bnds)
-    voi      = ['ps', 'pi', 'alpha', 'w0', 'w1', 'w2']
+    voi      = ['ps', 'pi', 'alpha', 'w0', 'w1', 'w2', 'l0', 'l1', 'l2']
 
     def load_params(self, params):
         self.alpha_sta = params[0]
