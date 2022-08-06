@@ -13,14 +13,15 @@ path = os.path.dirname(os.path.abspath(__file__))
 
 ## pass the hyperparams
 parser = argparse.ArgumentParser(description='Test for argparse')
-parser.add_argument('--agent_name', '-n', help='choose agent', default='mix_pol')
-parser.add_argument('--data_set', '-d', help='choose data set', default='gain_data')
-parser.add_argument('--n_sim', '-f', help='f simulations', type=int, default=5)
-parser.add_argument('--group', '-g', help='choose agent', default='ind')
-parser.add_argument('--seed', '-s', help='random seed', type=int, default=120)
-parser.add_argument('--n_cores', '-c', help='number of CPU cores used for parallel computing', 
+parser.add_argument('--data_set',   '-d', help='which_data', type = str, default='gain_data')
+parser.add_argument('--method',     '-m', help='fitting methods', type = str, default='map')
+parser.add_argument('--group',      '-g', help='fit to ind or fit to the whole group', type=str, default='ind')
+parser.add_argument('--agent_name', '-n', help='choose agent', default='mix_pol_3w')
+parser.add_argument('--n_cores',    '-c', help='number of CPU cores used for parallel computing', 
                                             type=int, default=1)
-parser.add_argument('-p', '--params', help='params', type=str, default='')
+parser.add_argument('--n_sim',      '-f', help='f simulations', type=int, default=5)
+parser.add_argument('--seed',       '-s', help='random seed', type=int, default=120)
+parser.add_argument('--params',     '-p', help='params', type=str, default='')
 args = parser.parse_args()
 args.agent = eval(args.agent_name)
 
@@ -48,9 +49,9 @@ def simulate(data, args, seed):
         if in_params is None:
             n_params = args.agent.n_params
             if args.group == 'ind': 
-                fname = f'{path}/fits/{args.agent_name}/params-{args.data_set}-{sub_idx}.csv'      
+                fname = f'{path}/fits/{args.agent_name}/params-{args.data_set}-{args.method}-{sub_idx}.csv'      
             elif args.group == 'avg':
-                fname = f'{path}/fits/params-{args.data_set}-{args.agent_name}-avg.csv'      
+                fname = f'{path}/fits/params-{args.data_set}-{args.method}-{args.agent_name}-avg.csv'      
             params = pd.read_csv(fname, index_col=0).iloc[0, 0:n_params].values
         else:
             params = in_params
@@ -72,7 +73,7 @@ def sim_paral(pool, data, args):
                             for i in range(args.n_sim)]
     for i, p in enumerate(res):
         sim_data = p.get() 
-        fname = f'{path}/simulations/{args.agent_name}/sim_{args.data_set}-idx{i}.csv'
+        fname = f'{path}/simulations/{args.agent_name}/sim_{args.data_set}-{args.method}-idx{i}.csv'
         sim_data.to_csv(fname, index = False, header=True)
     
 if __name__ == '__main__':

@@ -15,14 +15,14 @@ path = os.path.dirname(os.path.abspath(__file__))
 
 ## pass the hyperparams
 parser = argparse.ArgumentParser(description='Test for argparse')
-parser.add_argument('--n_fit', '-f', help='fit times', type = int, default=1)
-parser.add_argument('--data_set', '-d', help='which_data', type = str, default='gain_data')
-parser.add_argument('--loss_fn', '-l', help='fitting methods', type = str, default='mle')
-parser.add_argument('--group', '-g', help='fit to ind or fit to the whole group', type=str, default='ind')
-parser.add_argument('--agent_name', '-n', help='choose agent', default='mix_pol')
-parser.add_argument('--n_cores', '-c', help='number of CPU cores used for parallel computing', 
+parser.add_argument('--n_fit',      '-f', help='fit times', type = int, default=1)
+parser.add_argument('--data_set',   '-d', help='which_data', type = str, default='gain_data')
+parser.add_argument('--method',     '-m', help='fitting methods', type = str, default='map')
+parser.add_argument('--group',      '-g', help='fit to ind or fit to the whole group', type=str, default='ind')
+parser.add_argument('--agent_name', '-n', help='choose agent', default='mix_pol_3w')
+parser.add_argument('--n_cores',    '-c', help='number of CPU cores used for parallel computing', 
                                             type=int, default=1)
-parser.add_argument('--seed', '-s', help='random seed', type=int, default=420)
+parser.add_argument('--seed',       '-s', help='random seed', type=int, default=420)
 args = parser.parse_args()
 args.agent = eval(args.agent_name)
 
@@ -44,7 +44,7 @@ def fit_parallel(pool, data, subj, verbose, args):
     m_data = np.sum([data[key].shape[0] 
                         for key in data.keys()])
     results = [pool.apply_async(subj.fit, 
-                    args=(data, seed+2*i, verbose)
+                    args=(data, args.method, seed+2*i, verbose)
                     ) for i in range(args.n_fit)]
     opt_nll   = np.inf 
     for p in results:
@@ -78,14 +78,14 @@ def fit(pool, data, args):
         for sub_idx in data.keys():
             print(f'Fitting subject {sub_idx}, progress: {(done_subj*100)/all_subj:.2f}%')
             fit_res = fit_parallel(pool, data[sub_idx], subj, False, args)
-            pname = f'{path}/fits/{args.agent_name}/params-{args.data_set}-{sub_idx}.csv'
+            pname = f'{path}/fits/{args.agent_name}/params-{args.data_set}-{args.method}-{sub_idx}.csv'
             fit_res.to_csv(pname)
             done_subj += 1
 
     ## Fit params to the population level
     elif args.group == 'avg':
         fit_res = fit_parallel(data, pool, subj, True, args)
-        pname = f'{path}/fits/{args.agent_name}/params-{args.data_set}-avg.csv'
+        pname = f'{path}/fits/{args.agent_name}/params-{args.data_set}-{args.method}-avg.csv'
         fit_res.to_csv(pname)
     
     ## END!!!
@@ -104,7 +104,7 @@ def summary(data, args):
 
     ## Loop to collect data 
     for i, sub_idx in enumerate(data.keys()):
-        fname = f'{folder}/params-{args.data_set}-{sub_idx}.csv'
+        fname = f'{folder}/params-{args.data_set}-{args.method}-{sub_idx}.csv'
         log = pd.read_csv(fname, index_col=0)
         res_mat[i, :] = log.iloc[0, :].values
         if i == 0: col = log.columns
@@ -112,7 +112,7 @@ def summary(data, args):
     ## Compute and save the mean and sem
     res_smry[0, :] = np.mean(res_mat, axis=0)
     res_smry[1, :] = np.std(res_mat, axis=0) / np.sqrt(n_sub)
-    fname = f'{path}/fits/params-{args.data_set}-{args.agent_name}-ind.csv'
+    fname = f'{path}/fits/params-{args.data_set}-{args.method}-{args.agent_name}-ind.csv'
     pd.DataFrame(res_smry, columns=col).round(4).to_csv(fname)
 
 if __name__ == '__main__':

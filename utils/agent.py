@@ -1,7 +1,7 @@
 import numpy as np
 import torch
 from scipy.special import softmax
-from scipy.stats import norm, gamma
+from scipy.stats import norm, gamma, beta
 
 # get the machine epsilon
 eps_ = 1e-12
@@ -39,7 +39,7 @@ class baseAgent:
     pbnds    = []
     p_name   = []  
     n_params = 0 
-    param_priors = None 
+    p_priors = None 
     # value of interest, used for output
     # the interesting variable in simulation
     voi      = []
@@ -125,12 +125,14 @@ class gagRL(baseAgent):
 
 class gagModel(gagRL):
     name     = 'Gagne best model'
-    bnds     = [(0, 1), (0, 1), (0, 30), (0, 30), 
-                (0, 1), (0, 30), (0, 1), (0, 1), (0, 1)]
+    bnds     = [(0, 1), (0, 1), (0, 50), (0, 50), 
+                (0, 1), (0, 50), (0, 1), (0, 1), (0, 1)]
     pbnds    = [(0,.5), (0,.5), (0, 10), (0, 10), 
-                (0, 1), (0, 30), (0, 1), (0, 1), (0, 1)]
+                (0, 1), (0, 10), (0, 1), (0, 1), (0, 1)]
     p_name   = ['α_STA', 'α_VOL', 'β_STA', 'β_VOL', 
-                'α_ACT', 'β_ACT', 'λ_STA', 'β_ACT', 'r']  
+                'α_ACT', 'β_ACT', 'λ_STA', 'λ_ACT', 'r']  
+    p_priors = [beta(a=2, b=2), beta(a=2, b=2), gamma(a=3, scale=3), gamma(a=3, scale=3),
+                beta(a=2, b=2), gamma(a=3, scale=3), beta(a=2, b=2), beta(a=2, b=2), beta(a=2, b=2)]
     n_params = len(bnds)
     voi      = ['ps', 'pi'] 
    
@@ -158,42 +160,10 @@ class gagModel(gagRL):
        
     def _policy(self):
         c, m0, m1 = self.buffer.sample('ctxt', 'mag0','mag1')
-        beta = eval(f'self.beta_{c}')
         lamb = eval(f'self.lamb_{c}')
         v    = lamb*(self.p - (1-self.p)) \
                + (1-lamb)*abs(m1-m0)**self.r*np.sign(m1-m0)
-        va   = beta*v + self.beta_act*(self.q - (1-self.q))
-        pa   = 1 / (1 + np.exp(-va))
-        return np.array([1-pa, pa])
-
-class gagModel2(gagModel):
-    name     = 'Gagne best model'
-    bnds     = [(0, 1), (0, 1), (0, 30), (0, 30), 
-                (0, 1), (0, 1)]
-    pbnds    = [(0,.5), (0,.5), (0, 10), (0, 10), 
-                (0, 1), (0, 1)]
-    p_name   = ['α_STA', 'α_VOL', 'β_STA', 'β_VOL', 
-                'λ', 'r']  
-    n_params = len(bnds)
-    voi      = ['ps', 'pi']  
-   
-    def load_params(self, params):
-        self.alpha_sta = params[0]
-        self.alpha_vol = params[1]
-        self.beta_sta  = params[2]
-        self.beta_vol  = params[3]
-        self.lamb      = params[4]
-        self.r         = params[5]
-    
-    def learn(self):
-        self._learnCritic()
-       
-    def _policy(self):
-        c, m0, m1 = self.buffer.sample('ctxt', 'mag0','mag1')
-        beta = self.beta_sta if c=='sta' else self.beta_vol
-        v    = self.lamb*(self.p - (1-self.p)) \
-               + (1-self.lamb)*abs(m1-m0)**self.r*np.sign(m1-m0)
-        va   = beta*v 
+        va   = eval(f'self.beta_{c}')*v + self.beta_act*(self.q - (1-self.q))
         pa   = 1 / (1 + np.exp(-va))
         return np.array([1-pa, pa])
 
@@ -203,6 +173,7 @@ class risk(gagRL):
     pbnds    = [(0,.5), (0,.5), (0, 10), (0, 20), (0, 20)]
     p_name   = ['α_STA', 'α_VOL', 'β', 'γ_STA', 'γ_VOL']  
     n_params = len(bnds)
+    p_priors = [beta(a=2, b=2), beta(a=2, b=2), gamma(a=3, scale=3), gamma(a=3, scale=3), gamma(a=3, scale=3)]
     voi      = ['ps', 'pi'] 
    
     def load_params(self, params):

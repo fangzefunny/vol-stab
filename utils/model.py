@@ -21,12 +21,13 @@ class model:
     
     # ------------ fit ------------ #
 
-    def fit(self, data, seed=2021, init=None, verbose=False):
+    def fit(self, data, method='mle', seed=2021, init=None, verbose=False):
         '''Fit the parameter using optimization 
         '''
         # get bounds and possible bounds 
         bnds  = self.agent.bnds
         pbnds = self.agent.pbnds
+        if method == 'mle': self.param_priors = None 
 
         # Init params
         if init:

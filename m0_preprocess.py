@@ -66,11 +66,8 @@ def remake_cols_idx(data, sub_id, feedback_type, exp_id, seed=42):
 def get_subinfo():
     exp_id = 'exp1'
     d1 = pd.read_csv(f'{path}/data/participant_table_{exp_id}.csv')[
-                        ['MID', 'group_just_patients', 
-                        'STAI_Trait_anx', 'STAI_Trait_dep']]
-    d1 = d1.rename(columns={'group_just_patients': 'group',
-                            'STAI_Trait_anx': 'anx_lvl',
-                            'STAI_Trait_dep': 'dep_lvl'})
+                        ['MID', 'group_just_patients']]
+    d1 = d1.rename(columns={'group_just_patients': 'group'})
     d1['group'] = d1['group'].fillna('HC')
 
     exp_id = 'exp2'
@@ -83,8 +80,11 @@ def get_subinfo():
     # get the group
     sub_info1 = sub_info.groupby(by=['sub_id'])['group'].apply('-'.join).reset_index()
     sub_info1['group'] = sub_info1['group'].apply(lambda x: x.split('-')[0])
+
     # get the syndrome
-    sub_info2 = sub_info.groupby(by=['sub_id']).mean().reset_index()
+    sub_info2 = pd.read_csv(f'{path}/data/bifactor.csv')
+    sub_info2 = sub_info2.rename(columns={'Unnamed: 0': 'sub_id'})
+
     # paste them  up 
     sub_info = sub_info1.join(sub_info2.set_index('sub_id'), 
                         on='sub_id', how='left')
