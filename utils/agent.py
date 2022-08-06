@@ -408,7 +408,7 @@ class mix_pol(mix_Explore):
                 'λ0_STA', 'λ1_STA', 'λ2_STA', 'λ3_STA',
                 'λ0_VOL', 'λ1_VOL', 'λ2_VOL', 'λ3_VOL']
     n_params = len(bnds)
-    voi      = ['ps', 'pi', 'alpha', 'w0', 'w1', 'w2', 'w3', 'l0', 'l1', 'l2', 'l3']
+    voi      = ['ps', 'pi', 'alpha', 'w1', 'w2', 'w3', 'w4', 'l1', 'l2', 'l3', 'l4']
 
     def load_params(self, params):
         self.alpha_sta = params[0]
@@ -440,28 +440,28 @@ class mix_pol(mix_Explore):
         # creat the mixature model 
         return w0*p_SM + w1*self.p_S + w2*p_M + w3*self.q_A 
 
-    def print_w0(self):
+    def print_w1(self):
         return self.get_w(self.buffer.sample("ctxt"))[0]
 
-    def print_w1(self):
+    def print_w2(self):
         return self.get_w(self.buffer.sample("ctxt"))[1] 
 
-    def print_w2(self):
+    def print_w3(self):
         return self.get_w(self.buffer.sample("ctxt"))[2]  
 
-    def print_w3(self):
+    def print_w4(self):
         return self.get_w(self.buffer.sample("ctxt"))[3]  
 
-    def print_l0(self):
+    def print_l1(self):
         return eval(f'self.l0_{self.buffer.sample("ctxt")}')
 
-    def print_l1(self):
+    def print_l2(self):
         return eval(f'self.l1_{self.buffer.sample("ctxt")}')
 
-    def print_l2(self):
+    def print_l3(self):
         return eval(f'self.l2_{self.buffer.sample("ctxt")}')
 
-    def print_l3(self):
+    def print_l4(self):
         return eval(f'self.l3_{self.buffer.sample("ctxt")}')
 
 class mix_pol_3w(mix_pol):
@@ -476,7 +476,7 @@ class mix_pol_3w(mix_pol):
                 'λ0_STA', 'λ1_STA', 'λ2_STA',
                 'λ0_VOL', 'λ1_VOL', 'λ2_VOL']
     n_params = len(bnds)
-    voi      = ['ps', 'pi', 'alpha', 'w0', 'w1', 'w2', 'l0', 'l1', 'l2']
+    voi      = ['ps', 'pi', 'alpha', 'w1', 'w2', 'w3', 'l1', 'l2', 'l3']
 
     def load_params(self, params):
         self.alpha_sta = params[0]
