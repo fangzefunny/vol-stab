@@ -15,9 +15,9 @@ class model:
             y ~ p(Y|x,θ)
     '''
 
-    def __init__(self, agent, param_priors=None):
+    def __init__(self, agent):
         self.agent = agent
-        self.param_priors = param_priors
+        self.param_priors = agent.p_priors
     
     # ------------ fit ------------ #
 

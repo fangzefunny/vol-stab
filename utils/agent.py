@@ -1,7 +1,7 @@
 import numpy as np
 import torch
-from torch.distributions import Beta
 from scipy.special import softmax
+from scipy.stats import norm, gamma
 
 # get the machine epsilon
 eps_ = 1e-12
@@ -39,6 +39,7 @@ class baseAgent:
     pbnds    = []
     p_name   = []  
     n_params = 0 
+    param_priors = None 
     # value of interest, used for output
     # the interesting variable in simulation
     voi      = []
@@ -475,6 +476,9 @@ class mix_pol_3w(mix_pol):
     p_name   = ['α_STA', 'α_VOL', 'α_ACT', 'β',
                 'λ0_STA', 'λ1_STA', 'λ2_STA',
                 'λ0_VOL', 'λ1_VOL', 'λ2_VOL']
+    p_priors = [gamma(a=3, scale=3), gamma(a=3, scale=3),gamma(a=3, scale=3),gamma(a=3, scale=3),
+                norm(loc=0, scale=15), norm(loc=0, scale=15), norm(loc=0, scale=15), norm(loc=0, scale=15),
+                norm(loc=0, scale=15), norm(loc=0, scale=15), norm(loc=0, scale=15), norm(loc=0, scale=15)]
     n_params = len(bnds)
     voi      = ['ps', 'pi', 'alpha', 'w1', 'w2', 'w3', 'l1', 'l2', 'l3']
 
