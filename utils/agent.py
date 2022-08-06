@@ -1,5 +1,6 @@
 import numpy as np
 import torch
+from torch.distributions import Beta
 from scipy.special import softmax
 from scipy.stats import norm, gamma, beta
 

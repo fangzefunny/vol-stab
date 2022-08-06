@@ -73,7 +73,7 @@ def sim_paral(pool, data, args):
                             for i in range(args.n_sim)]
     for i, p in enumerate(res):
         sim_data = p.get() 
-        fname = f'{path}/simulations/{args.agent_name}/sim_{args.data_set}-{args.method}-idx{i}.csv'
+        fname = f'{path}/simulations/{args.agent_name}/sim-{args.data_set}-{args.method}-idx{i}.csv'
         sim_data.to_csv(fname, index = False, header=True)
     
 if __name__ == '__main__':

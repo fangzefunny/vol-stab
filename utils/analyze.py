@@ -1,170 +1,236 @@
+import os 
 import numpy as np 
-from scipy.special import psi, logsumexp
+import pandas as pd 
+from scipy.stats import ttest_ind, pearsonr
+import statsmodels.api as sm
+from statsmodels.formula.api import ols 
+from statsmodels.stats.anova import anova_lm
 
-def nats_to_bits( nats):
-    '''Map nats to bits
-    '''
-    return nats / np.log(2)
+import seaborn as sns 
+import matplotlib.pyplot as plt 
 
-def blahut_arimoto( distort, p_x, 
-                    beta,
-                    tol=1e-3, max_iter=200):
-    '''Blahut Arimoto algorithm
-    '''
-    # init variable for iteration
-    nX, nY = distort.shape[0], distort.shape[1]
-    p_y1x = np.ones( [ nX, nY]) / nY 
-    p_y = ( p_x.T @ p_y1x).T 
-    done = False
-    i = 0
+from utils.agent import *
+from utils.viz import viz 
 
-    while not done:
 
-        # cache the current channel for convergence check
-        old_p_y1x = p_y1x 
-        
-        # p(y|x) ∝ p(y)exp(-βD(x,y)) nXxnY
-        log_p_y1x = - beta * distort + np.log( p_y.T)
-        p_y1x = np.exp( log_p_y1x - logsumexp( log_p_y1x, axis=-1, keepdims=True))
+# path to the current file 
+path = os.path.dirname(os.path.abspath(__file__))
 
-        # p(y) = ∑_x p(x)p(y|x) nYx1
-        p_y = ( p_x.T @ p_y1x).T + np.finfo(float).eps
-        p_y = p_y / np.sum( p_y)
+def model_fit(models, method='mle'):
+    feedbacks = ['gain', 'loss']
+    crs = {}
+    for m in models:
+        for feedback in feedbacks:
+            fname = f'{path}/../simulations/{m}/sim-{feedback}_exp1data-{method}-idx0.csv'
+            data  = pd.read_csv(fname)
+            n_param = eval(m).n_params
+            subj_Lst = data['sub_id'].unique()
 
-        # iteration counter
-        i += 1
+            nlls, aics = [], [] 
+            for sub_id in subj_Lst:
+                sel_data = data.query(f'sub_id=="{sub_id}" & feedback_type=="{feedback}"')
+                inll = sel_data['logLike'].sum() 
+                nlls.append(inll)
+                if np.isnan(inll): print(inll) 
+                aics.append(2*inll + 2*n_param)
 
-        # check convergence
-        if np.sum(abs( p_y1x - old_p_y1x)) < tol:
-            done = True 
-        if i >= max_iter:
-            #print( f'reach maximum iteration {max_iter}, results might not inaccurate')
-            done = True 
+            crs[m] = {'nll': nlls, 'aic': aics}
+    return crs
+
+def model_cmp(quant_crs):
+    crs = ['nll', 'aic']
+    pairs = [['gagModel', 'risk'],
+             ['gagModel', 'mix_pol_3w'],
+             ['risk',  'mix_pol_3w']]
     
-    return p_y1x, p_y 
+    for cr in crs:
+        print(f'''
+            ------------- {cr} ------------- ''')
+        for p in pairs:
+            x = quant_crs[p[0]][cr]
+            y = quant_crs[p[1]][cr]
+            res = ttest_ind(x, y)
+            print(f'''
+            {p[0]}-{p[1]}: 
+                {p[0]}:{np.mean(x):.3f}, {p[1]}:{np.mean(y):.3f}
+                t={res[0]:.3f} p={res[1]:.3f}''')
 
-def Rate_Reward( data, prior=.1, wrong_prior=True):
-    '''Analyze the data
+def get_pivot(gain_data, loss_data, features=['rew', 'match', 'anx_lvl', 'dep_lvl', 'alpha', 'l1', 'l2', 'l3']):
+    ## get the gin and loss data 
+    gain_data_PAT = gain_data.query('group!="HC"')
+    gain_data_HC  = gain_data.query('group=="HC"')
 
-    Analyze the data to get the rate distortion curve,
-
-    Input:
-        data
-
-    Output:
-        Theoretical rate and distortion
-        Empirical rate and distortion 
-    '''
- 
-    # prepare an array of tradeoff
-    betas = np.logspace( np.log10(.1), np.log10(10), 50)
-
-    # create placeholder
-    # the challenge of creating the placeholder
-    # is that the length of the variable change 
-    # in each iteration. To handle this method, 
-    # my strategy is to create a matrix with 
-    # the maxlength of each variable and then, use 
-    # nanmean to summary the variables
+    loss_data_PAT = loss_data.query('group!="HC"')
+    loss_data_HC  = loss_data.query('group=="HC"')
     
-    # get the number of subjects
-    num_sub = len(data.keys())
-    max_setsize = 5
+    ## pivot table 
+    pivot_tables = {}
+    gainloss = ['gain', 'loss']
+    groups   = ['PAT', 'HC']
+    for feedback_type in gainloss:
+        for group in groups:
+            fname = f'{feedback_type}_data_{group}'
+            kname = f'{feedback_type}, {group}'
+            df = eval(fname).groupby(by=['sub_id', 'b_type']
+                    ).mean()[features].reset_index()
+            df['feedback_type'] = feedback_type
+            df['group']         = group
+            pivot_tables[kname] = df
+    return pivot_tables
+
+## data info
+def datainfo(pivot_tables):
+    print(f'''
+    #Total rows: {(pivot_tables['gain, PAT'].shape[0]+pivot_tables['gain, HC'].shape[0]
+                + pivot_tables['loss, PAT'].shape[0]+pivot_tables['loss, HC'].shape[0])}
+
+    #gain rows: {(pivot_tables['gain, PAT'].shape[0]+pivot_tables['gain, HC'].shape[0])}
+    #loss rows: {(pivot_tables['loss, PAT'].shape[0]+pivot_tables['loss, HC'].shape[0])}
+
+    #patient rows: {(pivot_tables['gain, PAT'].shape[0]+pivot_tables['loss, PAT'].shape[0])}
+    #control rows: {(pivot_tables['gain, HC'].shape[0]+pivot_tables['loss, HC'].shape[0])}
     
-    # create a placeholder
-    results = dict()
-    summary_Rate_data = np.empty( [ num_sub, max_setsize, 2]) + np.nan
-    summary_Val_data  = np.empty( [ num_sub, max_setsize, 2]) + np.nan
-    summary_Rate_theo = np.empty( [ num_sub, len(betas), max_setsize,]) + np.nan
-    summary_Val_theo  = np.empty( [ num_sub, len(betas), max_setsize,]) + np.nan
+    #patient x gain rows: {pivot_tables['gain, PAT'].shape[0]}
+    #patient x loss rows: {pivot_tables['loss, PAT'].shape[0]}
+    #control x gain rows: {pivot_tables['gain, HC'].shape[0]}
+    #control x loss rows: {pivot_tables['loss, HC'].shape[0]}
+    ''')
 
-    # run Blahut-Arimoto
-    for subi, sub in enumerate(data.keys()):
+def bootstrapping(data, size, seed=2022):
+    rng = np.random.RandomState(seed)
+    ind = list(data.index)
+    ind_BS = rng.choice(ind, size=size, replace=True)
+    return data.loc[ind_BS, :]
 
-        #print(f'Subject:{subi}')
-        sub_data  = data[ sub]
-        blocks    = np.unique( sub_data.block) # all blocks for a subject
-        setsize   = np.zeros( [len(blocks),])
-        Rate_data = np.zeros( [len(blocks),])
-        Val_data  = np.zeros( [len(blocks),])
-        Rate_theo = np.zeros( [len(blocks), len(betas)])
-        Val_theo  = np.zeros( [len(blocks), len(betas)])
-        #errors    = np.zeros( [len(blocks),])
-        #bias_state= np.zeros( [len(blocks), 6]) 
+def build_pivot_table(method, min_q=.01, max_q=.99):
+    agent = 'mix_pol_3w'
+    tar_tail =  ['l1', 'l2', 'l3'] 
+    notes    =  [r'$\lambda_1$: exp utility', r'$\lambda_2$: magnitude', r'$\lambda_3$: habit']
+    gain_data = pd.read_csv(f'{path}/../simulations/{agent}/sim_gain_exp1data-{method}-idx0.csv')
+    loss_data = pd.read_csv(f'{path}/../simulations/{agent}/sim_loss_exp1data-{method}-idx0.csv')
+    sub_syndrome = pd.read_csv(f'{path}/../data/bifactor.csv')
+    sub_syndrome = sub_syndrome.rename(columns={'Unnamed: 0': 'sub_id', 'F1.': 'f1', 'F2.':'f2'})
+    pivot_tables = get_pivot(gain_data, loss_data, features=['rew', 'match', 'alpha']+tar_tail)
 
-        # estimate the mutual inforamtion for each block 
-        for bi, block in enumerate(blocks):
-            idx      = ((sub_data.block == block) & 
-                        (sub_data.iter < 10))
-            states   = sub_data.state[idx].values
-            actions  = sub_data.action[idx].values
-            cor_acts = sub_data.correct_act[idx].values
-            rewards  = sub_data.reward[idx].values
-            is_sz    = int(sub_data.is_sz.values[0])
-            
-            # estimate some critieria 
-            #errors[bi]    = np.sum( actions != cor_acts) / len( actions)
-            Rate_data[bi] = MI_from_data( states, actions, prior, wrong_prior=wrong_prior)
+    print('#-------- Before Bootstrapping ---------- #')
+    datainfo(pivot_tables)
 
-            Val_data[bi] = np.mean( rewards)
+    print('#-------- After Bootstrapping ---------- #')
+    n = 106
+    pivot_tables['gain, PAT'] = bootstrapping(
+                        pivot_tables['gain, PAT'], size=n)
+    pivot_tables['loss, PAT'] = bootstrapping(
+                        pivot_tables['loss, PAT'], size=n)
+    datainfo(pivot_tables)
 
-            # estimate the theoretical RD curve
-            S_card  = np.unique( states)
-            A_card  = range(3)
-            nS      = len(S_card)
-            nA      = len(A_card)
-            
-            # calculate distortion fn (utility matrix) 
-            Q_value = np.zeros( [ nS, nA])
-            for i, s in enumerate( S_card):
-                a = int(cor_acts[states==s][0]) # get the correct response
-                Q_value[ i, a] = 1
+    print('#-------- Clean Outliers ---------- #\n')
+    # concate to build a table
+    pivot_table = [pivot_tables[k] for k in pivot_tables.keys()]
+    pivot_table = pd.concat(pivot_table, axis=0, ignore_index=True)
+    pivot_table['log_alpha'] = pivot_table['alpha'].apply(lambda x: np.log(x+1e-12))
+    oldN = pivot_table.shape[0]
 
-            # init p(s) 
-            p_s     = np.zeros( [ nS, 1])
-            for i, s in enumerate( S_card):
-                p_s[i, 0] = np.mean( states==s)
-            p_s += np.finfo(float).eps
-            p_s = p_s / np.sum( p_s)
-            
-            # run the Blahut-Arimoto to get the theoretical solution
-            for betai, beta in enumerate(betas):
-                
-                # get the optimal channel for each tradeoff
-                pi_a1s, p_a = Blahut_Arimoto( -Q_value, p_s,
-                                              beta, update_prior=(1-wrong_prior))
-                # calculate the expected distort (-utility)
-                # EU = ∑_s,a p(s)π(a|s)Q(s,a)
-                theo_util  = np.sum( p_s * pi_a1s * Q_value)
-                # Rate = β*EU - ∑_s p(s) Z(s) 
-                # Z(s) = log ∑_a p(a)exp(βQ(s,a))  # nSx1
-                # Zstate     = logsumexp( beta * Q_value + np.log(p_a.T), 
-                #                     axis=-1, keepdims=True)
-                #theo_rate  = beta * theo_util - np.sum( p_s * Zstate)
-                theo_rate   = np.sum( p_s * pi_a1s * 
-                   ( np.log( pi_a1s + eps_) - np.log( p_a.T + eps_)))
+    # remove the outliers
+    tar = ['log_alpha'] + tar_tail
+    for i in tar:
+        qhigh = pivot_table[i].quantile(max_q)
+        qlow  = pivot_table[i].quantile(min_q)
+        pivot_table = pivot_table.query(f'{i}<{qhigh} & {i}>{qlow}')
+    print(f'    {pivot_table.shape[0]} rows')
+    print(f'    {pivot_table.shape[0] * 100/ oldN:.1f}% data has been retained')
 
-                # record
-                Rate_theo[ bi, betai] = theo_rate
-                Val_theo[ bi, betai]  = theo_util
+    # add syndrome 
+    pivot_table = pivot_table.join(sub_syndrome.set_index('sub_id'), 
+                        on='sub_id', how='left')
+    for i in ['g', 'f1', 'f2']:
+        pivot_table[i] = pivot_table[i].fillna(pivot_table[i].mean())
 
-            setsize[bi] = len(np.unique( states))
+    return pivot_table
 
-        for zi, sz in enumerate([ 2, 3, 4, 5, 6]):
-            summary_Rate_data[ subi, zi, is_sz] = np.nanmean( Rate_data[ (setsize==sz),])
-            summary_Val_data[ subi, zi, is_sz]  = np.nanmean(  Val_data[ (setsize==sz),])
-            summary_Rate_theo[ subi, :, zi] = np.nanmean( Rate_theo[ (setsize==sz), :],axis=0)
-            summary_Val_theo[ subi, :, zi]  = np.nanmean(  Val_theo[ (setsize==sz), :],axis=0)
+def t_test(data, cond1, cond2, tar=['l1', 'l2', 'l3']):
+    ## the significant test 
+    for_title = []
+    for i in tar:
+        x = data.query(cond1)[i].values
+        y = data.query(cond2)[i].values
+        res = ttest_ind(x, y)
+        if res[1] < .01:
+            for_title.append('**')
+        elif res[1] < .05:
+            for_title.append('*')
+        else:
+            for_title.append('')
+        print(f'{i} t-test: t={res[0]:.4f}, p-val:{res[1]:.4f}')
+    return for_title
 
-    # prepare for the output 
-    results[ 'Rate_theo'] = np.nanmean( summary_Rate_theo, axis=0)
-    results[  'Val_theo'] = np.nanmean(  summary_Val_theo, axis=0)
-    results[ 'Rate_data'] = summary_Rate_data
-    results[  'Val_data'] = summary_Val_data
+def main_effect(pivot_table, pred, cond1, cond2,
+            tar=['l1', 'l2', 'l3', 'l4'], 
+            notes=['exp utility', 'reward probability', 'magnitude', 'habit']):
+    nr, nc = 1, len(tar)
+    fig, axs = plt.subplots(nr, nc, figsize=(nc*3.7, nr*4), sharey=True, sharex=True)
+    for_title = t_test(pivot_table, cond1, cond2, tar=tar)
+    for idx in range(nc):
+        ax  = axs[idx]
+        sns.boxplot(x=pred, y=f'{tar[idx]}', data=pivot_table,
+                        palette=viz.Palette, ax=ax)
+        ax.set_xlim([-.8, 1.8])
+        ax.set_ylabel('')
+        ax.set_xlabel('')
+        ax.set_title(f'{notes[idx]} {for_title[idx]}')
+        # if idx == 1: ax.legend(bbox_to_anchor=(1.4, 0), loc='lower right')
+        # else: ax.get_legend().remove()
+    plt.tight_layout()
+    plt.show()
 
-    return results
+def f_twoway(data, fac1, fac2, tar=['l1', 'l2', 'l3']):
+    ## the significant test 
+    for_title = []
+    for i in tar:
+        model = ols(f'{i} ~ C({fac1}) + C({fac2}) + C({fac1}):C({fac2})', data).fit()
+        res = anova_lm(model).loc[f'C({fac1}):C({fac2})', ['F', 'PR(>F)']]
+        if res[1] < .01:
+            for_title.append('**')
+        elif res[1] < .05:
+            for_title.append('*')
+        else:
+            for_title.append('')
+        print(f'{i} f-two way: f={res[0]:.4f}, p-val:{res[1]:.4f}')
+    return for_title
 
-#================================
-#     Rate-Distortion analyses
-#================================
+def intersect_effect(pivot_table, fac1, fac2,
+            tar=['l1', 'l2', 'l3', 'l4'], 
+            notes=['exp utility', 'reward probability', 'magnitude', 'habit']):
+    nr, nc = 1, len(tar)
+    fig, axs = plt.subplots(nr, nc, figsize=(nc*3.7, nr*4), sharey=True)
+    for_title = f_twoway(pivot_table, fac1, fac2, tar)
+    for idx in range(nc):
+        ax  = axs[idx]
+        sns.boxplot(x=fac1, y=f'{tar[idx]}', data=pivot_table,
+                        hue=fac2, palette=viz.Palette, ax=ax)
+        ax.set_xlim([-.8, 1.8])
+        ax.set_ylabel('')
+        ax.set_xlabel('')
+        ax.set_title(f'{notes[idx]} {for_title[idx]}')
+        if idx == nc-1: ax.legend(bbox_to_anchor=(1.6, .5), loc='right')
+        else: ax.get_legend().remove()
+    plt.tight_layout()
+    plt.show()
 
+def pred_syndrome(pivot_table, pred='ratioanl_deg'):
+    nr, nc = 1, 3
+    syns = ['g', 'f1', 'f2']
+    fix, axs = plt.subplots(nr, nc, figsize=(nc*3.4, nr*4), sharey=True)
+    for i, syn in enumerate(syns):
+        ax = axs[i]
+        sns.scatterplot(x=pred, y=syn, data=pivot_table, ax=ax)
+        res = pearsonr(pivot_table[pred], pivot_table[syn])
+        if res[1] < .05:
+            x = sm.add_constant(pivot_table[pred])
+            params = sm.OLS(x, pivot_table['g']).fit().params
+            x = pivot_table[pred].values
+            y = params.iloc[0, 0] + x*params.iloc[0, 1] 
+            sns.lineplot(x=x, y=y, color='k', ax=ax)
+        print(f'{syn}: r={res[0]:.4f}, pval={res[1]:.4f}')
+        ax.set_title(f'{syn}')
+        ax.set_ylabel('')
+    plt.tight_layout()
