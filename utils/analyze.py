@@ -226,7 +226,7 @@ def pred_syndrome(pivot_table, pred='ratioanl_deg'):
         res = pearsonr(pivot_table[pred], pivot_table[syn])
         if res[1] < .05:
             x = sm.add_constant(pivot_table[pred])
-            params = sm.OLS(x, pivot_table['g']).fit().params
+            params = sm.OLS(x, pivot_table[i]).fit().params
             x = pivot_table[pred].values
             y = params.iloc[0, 0] + x*params.iloc[0, 1] 
             sns.lineplot(x=x, y=y, color='k', ax=ax)
