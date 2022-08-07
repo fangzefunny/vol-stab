@@ -449,8 +449,8 @@ class mix_pol_3w(mix_pol):
                 'λ0_STA', 'λ1_STA', 'λ2_STA',
                 'λ0_VOL', 'λ1_VOL', 'λ2_VOL']
     p_priors = [gamma(a=3, scale=3), gamma(a=3, scale=3),gamma(a=3, scale=3),gamma(a=3, scale=3),
-                norm(loc=0, scale=15), norm(loc=0, scale=15), norm(loc=0, scale=15), norm(loc=0, scale=15),
-                norm(loc=0, scale=15), norm(loc=0, scale=15), norm(loc=0, scale=15), norm(loc=0, scale=15)]
+                norm(loc=0, scale=10), norm(loc=0, scale=10), norm(loc=0, scale=10), norm(loc=0, scale=10),
+                norm(loc=0, scale=10), norm(loc=0, scale=10), norm(loc=0, scale=10), norm(loc=0, scale=10)]
     n_params = len(bnds)
     voi      = ['ps', 'pi', 'alpha', 'w1', 'w2', 'w3', 'l1', 'l2', 'l3']
 
